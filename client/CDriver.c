@@ -1,4 +1,7 @@
 #include "CDriver.h"
+#include "genann.h"
+
+genann* ann;
 
 /* Gear Changing Constants*/
 const int gearUp[6]=
@@ -129,8 +132,11 @@ float getAccel(structCarState *cs)
 
 }
 
+
+
 structCarControl CDrive(structCarState cs)
 {
+    /*
     if(cs.stage != cs.prevStage)
     {
         cs.prevStage = cs.stage;
@@ -150,8 +156,8 @@ structCarControl CDrive(structCarState cs)
 	// after car is stuck for a while apply recovering policy
     if (stuck > stuckTime)
     {
-    	/* set gear and sterring command assuming car is 
-    	 * pointing in a direction out of track */
+    	//set gear and sterring command assuming car is 
+    	// pointing in a direction out of track 
     	
     	// to bring car parallel to track axis
         float steer = - cs.angle / steerLock; 
@@ -208,7 +214,14 @@ structCarControl CDrive(structCarState cs)
         // build a CarControl variable and return it
         structCarControl cc = {accel,brake,gear,steer,clutch};
         return cc;
-    }
+    }*/
+    
+    clutching(&cs, &clutch);
+    int gear = getGear(&cs);
+    double const* prediction = genann_run(ann, cs.track);
+    //printf("%f\t, %f\t, %f\t, %f\t, %f\t,", prediction[0], prediction[1], prediction[2], prediction[3], prediction[4]);
+    structCarControl cc = { prediction[0], prediction[1], gear, prediction[3], clutch };
+    return cc;
 }
 
 float filterABS(structCarState *cs,float brake)
@@ -289,6 +302,7 @@ void clutching(structCarState *cs, float *clutch)
 //gives 19 angles for the distance sensors
 void Cinit(float *angles)
 {
+    ann = genann_init(19, 1, 3, 3);
 
 	// set angles as {-90,-75,-60,-45,-30,20,15,10,5,0,5,10,15,20,30,45,60,75,90}
 
