@@ -1,8 +1,6 @@
 #include "CDriver.h"
 #include "genann.h"
 
-genann* ann;
-
 /* Gear Changing Constants*/
 const int gearUp[6]=
     {
@@ -46,6 +44,183 @@ const float clutchMaxTime=1.5;
 
 int stuck;
 float clutch;
+
+
+// CUSTOM STUFF FROM HERE
+float prevDistRaced;
+float laptimeThd = 5.0f;
+
+int cycles = 50;
+float mutationChance = 0.05f;
+
+#define popSize 30 
+genann* population[popSize];
+int fitness[popSize];
+
+int currentIndividual = 0;
+int currentCycle = 0;
+
+
+// neural network architecture
+#define inputNeuronCnt 22
+#define hiddenLayerCnt 2
+#define hiddenNeuronCnt 13
+#define outputNeuronCnt 3
+
+
+
+
+
+
+// only for program flow exploration
+int counter = 0;
+
+
+//gives 19 angles for the distance sensors
+void Cinit(float* angles)
+{
+    for (int i = 0; i < popSize; i++)
+        population[i] = genann_init(inputNeuronCnt, hiddenLayerCnt, hiddenNeuronCnt, outputNeuronCnt);
+    prevDistRaced = 0.0f;
+
+    // set angles as {-90,-75,-60,-45,-30,20,15,10,5,0,5,10,15,20,30,45,60,75,90}
+
+    for (int i = 0; i < 5; i++)
+    {
+        angles[i] = -90 + i * 15;
+        angles[18 - i] = 90 - i * 15;
+    }
+
+    for (int i = 5; i < 9; i++)
+    {
+        angles[i] = -20 + (i - 5) * 5;
+        angles[18 - i] = 20 - (i - 5) * 5;
+    }
+    angles[9] = 0;
+}
+
+
+void evaluate(structCarState cs)
+{
+    int points = 0;
+
+    // going is good mmmmkkaaaayyy???
+    points += (int)cs.distRaced - prevDistRaced;
+    //printf("\n%f", cs.distRaced - prevDistRaced);
+    prevDistRaced = cs.distRaced;
+
+    if (fitness[currentIndividual] + points < 1)
+        fitness[currentIndividual] = 1;
+    else
+        fitness[currentIndividual] = points;
+}
+
+
+void next()
+{
+    if (currentCycle == cycles - 1)
+    {
+        //stop and save the best individual to a file
+        return;
+    }
+
+    if (currentIndividual == popSize - 1)
+    {
+        // create pool for next generation
+        // crossover with mutation
+        currentIndividual = 0;
+        currentCycle++;
+        return;
+    }
+
+    currentIndividual++;
+}
+
+/*
+    todo:
+    - maybe use same magnitude between input data
+        e. g. distance sensor gives back 200
+        divide by 10?
+        reason to do so: after a certain speed
+        the network becomes blind to any change
+        ha 45 felett minden 1 lesz a sigmoid után
+        akkor nem fog értesulni arrol hogy 100 megy vagy 50 nel
+        
+*/
+
+//double const* feed_forward(structCarState cs, float input[], )
+
+structCarControl CDrive(structCarState cs)
+{
+
+    clutching(&cs, &clutch);
+    int gear = getGear(&cs); 
+
+    // possible addition to input:
+    // z, trackpos
+    float input[inputNeuronCnt];
+    for (int i = 0; i < 19; i++)
+        input[i] = cs.track[i];
+    input[19] = cs.speedX;
+    input[20] = cs.speedY;
+    input[21] = cs.speedZ;
+
+    // feed forward
+    double const* prediction = genann_run(population[currentIndividual], input);
+    double accel = prediction[0];
+    double brake = prediction[1];
+    double steer = prediction[2] * 2 - 1;
+    
+    if (accel > brake)
+        brake = 0;
+    else
+        accel = 0;
+
+    evaluate(cs);
+
+    if (0)
+    {
+        printf("\n\n\ninput data:");
+        for (int i = 0; i < inputNeuronCnt; i++)
+            printf("\n%d:\t%f", i, input[i]);
+
+        printf("\n\n\nprediction:");
+        printf("\naccel:\t%f", accel);
+        printf("\nbrake:\t%f", brake);
+        printf("\nsteer:\t%f", steer);
+        printf("\nfitness:\t%d", fitness[currentIndividual]);
+
+        printf("\n\nspeedx:\t%f", cs.speedX);
+        printf("\nspeedy:\t%f", cs.speedY);
+        printf("\nspeedz:\t%f", cs.speedZ);
+    } 
+
+    int meta = 0;
+    if (cs.curLapTime > laptimeThd)
+    {
+        meta = 1;
+        next();
+    }
+
+    structCarControl cc = { accel, brake, gear, steer, clutch, meta };
+    return cc;
+}
+
+
+void ConShutdown()
+{
+    printf("Bye bye!");
+}
+
+void ConRestart()
+{
+    prevDistRaced = 0.0f;
+
+    printf("\n\ncounter:\t%d\n\n", counter);
+    counter += 1;
+    printf("Restarting the race!");
+}
+
 
 int getGear(structCarState *cs)
 {
@@ -134,95 +309,7 @@ float getAccel(structCarState *cs)
 
 
 
-structCarControl CDrive(structCarState cs)
-{
-    /*
-    if(cs.stage != cs.prevStage)
-    {
-        cs.prevStage = cs.stage;
-    }
-	// check if car is currently stuck
-	if ( fabs(cs.angle) > stuckAngle )
-    {
-		// update stuck counter
-        stuck++;
-    }
-    else
-    {
-    	// if not stuck reset stuck counter
-        stuck = 0;
-    }
 
-	// after car is stuck for a while apply recovering policy
-    if (stuck > stuckTime)
-    {
-    	//set gear and sterring command assuming car is 
-    	// pointing in a direction out of track 
-    	
-    	// to bring car parallel to track axis
-        float steer = - cs.angle / steerLock; 
-        int gear=-1; // gear R
-        
-        // if car is pointing in the correct direction revert gear and steer  
-        if (cs.angle*cs.trackPos>0)
-        {
-            gear = 1;
-            steer = -steer;
-        }
-
-        // Calculate clutching
-        clutching(&cs,&clutch);
-
-        // build a CarControl variable and return it
-        structCarControl cc = {1.0f,0.0f,gear,steer,clutch};
-        return cc;
-    }
-
-    else // car is not stuck
-    {
-    	// compute accel/brake command
-        float accel_and_brake = getAccel(&cs);
-        // compute gear 
-        int gear = getGear(&cs);
-        // compute steering
-        float steer = getSteer(&cs);
-        
-
-        // normalize steering
-        if (steer < -1)
-            steer = -1;
-        if (steer > 1)
-            steer = 1;
-        
-        // set accel and brake from the joint accel/brake command 
-        float accel,brake;
-        if (accel_and_brake>0)
-        {
-            accel = accel_and_brake;
-            brake = 0;
-        }
-        else
-        {
-            accel = 0;
-            // apply ABS to brake
-            brake = filterABS(&cs,-accel_and_brake);
-        }
-
-        // Calculate clutching
-        clutching(&cs,&clutch);
-
-        // build a CarControl variable and return it
-        structCarControl cc = {accel,brake,gear,steer,clutch};
-        return cc;
-    }*/
-    
-    clutching(&cs, &clutch);
-    int gear = getGear(&cs);
-    double const* prediction = genann_run(ann, cs.track);
-    //printf("%f\t, %f\t, %f\t, %f\t, %f\t,", prediction[0], prediction[1], prediction[2], prediction[3], prediction[4]);
-    structCarControl cc = { prediction[0], prediction[1], gear, prediction[3], clutch };
-    return cc;
-}
 
 float filterABS(structCarState *cs,float brake)
 {
@@ -253,15 +340,7 @@ float filterABS(structCarState *cs,float brake)
     	return brake;
 }
 
-void ConShutdown()
-{
-    printf("Bye bye!");
-}
 
-void ConRestart()
-{
-    printf("Restarting the race!");
-}
 
 void clutching(structCarState *cs, float *clutch)
 {
@@ -299,23 +378,84 @@ void clutching(structCarState *cs, float *clutch)
   }
 }
 
-//gives 19 angles for the distance sensors
-void Cinit(float *angles)
-{
-    ann = genann_init(19, 1, 3, 3);
 
-	// set angles as {-90,-75,-60,-45,-30,20,15,10,5,0,5,10,15,20,30,45,60,75,90}
 
-	for (int i=0; i<5; i++)
-	{
-		angles[i]=-90+i*15;
-		angles[18-i]=90-i*15;
-	}
+/*
+    if(cs.stage != cs.prevStage)
+    {
+        cs.prevStage = cs.stage;
+    }
+    // check if car is currently stuck
+    if ( fabs(cs.angle) > stuckAngle )
+    {
+        // update stuck counter
+        stuck++;
+    }
+    else
+    {
+        // if not stuck reset stuck counter
+        stuck = 0;
+    }
 
-	for (int i=5; i<9; i++)
-	{
-			angles[i]=-20+(i-5)*5;
-			angles[18-i]=20-(i-5)*5;
-	}
-	angles[9]=0;
-}
+    // after car is stuck for a while apply recovering policy
+    if (stuck > stuckTime)
+    {
+        //set gear and sterring command assuming car is
+        // pointing in a direction out of track
+
+        // to bring car parallel to track axis
+        float steer = - cs.angle / steerLock;
+        int gear=-1; // gear R
+
+        // if car is pointing in the correct direction revert gear and steer
+        if (cs.angle*cs.trackPos>0)
+        {
+            gear = 1;
+            steer = -steer;
+        }
+
+        // Calculate clutching
+        clutching(&cs,&clutch);
+
+        // build a CarControl variable and return it
+        structCarControl cc = {1.0f,0.0f,gear,steer,clutch};
+        return cc;
+    }
+
+    else // car is not stuck
+    {
+        // compute accel/brake command
+        float accel_and_brake = getAccel(&cs);
+        // compute gear
+        int gear = getGear(&cs);
+        // compute steering
+        float steer = getSteer(&cs);
+
+
+        // normalize steering
+        if (steer < -1)
+            steer = -1;
+        if (steer > 1)
+            steer = 1;
+
+        // set accel and brake from the joint accel/brake command
+        float accel,brake;
+        if (accel_and_brake>0)
+        {
+            accel = accel_and_brake;
+            brake = 0;
+        }
+        else
+        {
+            accel = 0;
+            // apply ABS to brake
+            brake = filterABS(&cs,-accel_and_brake);
+        }
+
+        // Calculate clutching
+        clutching(&cs,&clutch);
+
+        // build a CarControl variable and return it
+        structCarControl cc = {accel,brake,gear,steer,clutch};
+        return cc;
+    }*/
