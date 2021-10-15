@@ -61,6 +61,7 @@ float mutationChance = 0.03f;
 
 #define popSize 2
 genann* population[popSize];
+bool popIsInitialized = false;
 int fitness[popSize];
 int maxFitness = 1;
 
@@ -86,6 +87,10 @@ int currentCycle = 0;
         ha 45 felett minden 1 lesz a sigmoid után
         akkor nem fog értesulni arrol hogy 100 megy vagy 50 nel
 
+    - kivalasztani az inputokat
+    - reward policy kitalalasa
+    - feltetel hogy lealljon az egyed probalkozasa
+
 */
 
 
@@ -99,6 +104,14 @@ void Cinit(float* angles)
     // init random generator
     srand(time(0));
 
+    if (popIsInitialized)
+    {
+        for (int i = 0; i < popSize; i++)
+            genann_free(population[i]);
+        popIsInitialized = false;
+    }
+
+
     // 0: random
     // 1: prev
     // 2: inference
@@ -108,6 +121,8 @@ void Cinit(float* angles)
     {
         for (int i = 0; i < popSize; i++)
             population[i] = genann_init(inputNeuronCnt, hiddenLayerCnt, hiddenNeuronCnt, outputNeuronCnt);
+
+        popIsInitialized = true;
     }
     else if (mode == 1) // start from file
     {
@@ -126,6 +141,7 @@ void Cinit(float* angles)
             fclose(in);
         }
 
+        popIsInitialized = true;
     }
     else if (mode == 2)
         ;//inference
