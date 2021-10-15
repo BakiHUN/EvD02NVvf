@@ -56,7 +56,7 @@ float clutch;
 float prevDistRaced = 0.0f;
 float laptimeThd = 5.0f;
 
-int cycles = 3;
+int cycles = 4;
 float mutationChance = 0.03f;
 
 #define popSize 2
@@ -215,6 +215,7 @@ void crossover()
         genann* c2 = genann_init(inputNeuronCnt, hiddenLayerCnt, hiddenNeuronCnt, outputNeuronCnt);
         new_pop[i] = c1;
         new_pop[i + 1] = c2;
+           
 
         // crossover
         int crossOverPoint = rand() % weightCnt;
@@ -248,14 +249,19 @@ void crossover()
     {
         genann_free(population[i]);
         population[i] = genann_copy(new_pop[i]);
-        genann_free(new_pop[i]);
+
     }    
 }
 
 
 void next()
 {
-    if (currentCycle == cycles - 1)
+    
+
+    if (currentIndividual == popSize - 1)
+    {
+        crossover();
+        if (currentCycle == cycles-1)
     {
         //stop and save the best individual to a file
         time_t t = time(NULL);
@@ -286,18 +292,18 @@ void next()
             char path[10];
             sprintf(path, "%02d.txt", i);
             FILE* out = fopen(path, "w");
+            printf("%d",i);
             genann_write(population[idx[i]], out);
             fclose(out);
         }
 
 
-        exit(0);
+        exit(42);
         //return;
     }
 
-    if (currentIndividual == popSize - 1)
-    {
-        crossover();
+
+
         currentIndividual = 0;
         currentCycle++;
         return;
