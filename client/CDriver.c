@@ -1,5 +1,11 @@
 #include "CDriver.h"
 #include "genann.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <stdbool.h>
+#include <time.h>
+
 
 /* Gear Changing Constants*/
 const int gearUp[6]=
@@ -47,15 +53,16 @@ float clutch;
 
 
 // CUSTOM STUFF FROM HERE
-float prevDistRaced;
+float prevDistRaced = 0.0f;
 float laptimeThd = 5.0f;
 
-int cycles = 50;
-float mutationChance = 0.05f;
+int cycles = 3;
+float mutationChance = 0.03f;
 
-#define popSize 30 
+#define popSize 2
 genann* population[popSize];
 int fitness[popSize];
+int maxFitness = 0;
 
 int currentIndividual = 0;
 int currentCycle = 0;
@@ -69,7 +76,17 @@ int currentCycle = 0;
 
 
 
+/*
+    todo:
+    - maybe use same magnitude between input data
+        e. g. distance sensor gives back 200
+        divide by 10?
+        reason to do so: after a certain speed
+        the network becomes blind to any change
+        ha 45 felett minden 1 lesz a sigmoid után
+        akkor nem fog értesulni arrol hogy 100 megy vagy 50 nel
 
+*/
 
 
 // only for program flow exploration
@@ -79,8 +96,33 @@ int counter = 0;
 //gives 19 angles for the distance sensors
 void Cinit(float* angles)
 {
-    for (int i = 0; i < popSize; i++)
-        population[i] = genann_init(inputNeuronCnt, hiddenLayerCnt, hiddenNeuronCnt, outputNeuronCnt);
+    // init random generator
+    srand(time(0));
+
+    if (42) // start from random
+    {
+        for (int i = 0; i < popSize; i++)
+            population[i] = genann_init(inputNeuronCnt, hiddenLayerCnt, hiddenNeuronCnt, outputNeuronCnt);
+    }
+    else // start from file
+    {
+        /*
+        FILE* in = fopen("persist.txt", "r");
+        genann* second = genann_read(in);
+        fclose(in);
+        */
+        for (int i = 0; i < popSize; i++)
+        {
+            char path[10];
+            sprintf(path, "%02d.txt", i);
+
+            FILE* in = fopen(path, "r");
+            population[i] = genann_read(in);
+            fclose(in);
+        }
+
+    }
+    
     prevDistRaced = 0.0f;
 
     // set angles as {-90,-75,-60,-45,-30,20,15,10,5,0,5,10,15,20,30,45,60,75,90}
@@ -115,19 +157,121 @@ void evaluate(structCarState cs)
         fitness[currentIndividual] = points;
 }
 
+genann* acceptReject()
+{
+    int counter = 0;
+    int safetyThd = 100;
+    while (42)
+    {
+        int parentIdx = rand() % popSize;
+        if (fitness[parentIdx] > rand() % maxFitness)
+            return population[parentIdx];
+
+        if (counter > safetyThd)
+            return population[parentIdx];
+
+        counter++;
+    }
+}
+
+void crossover()
+{
+    genann* new_pop[popSize];
+    int weightCnt = population[0]->total_weights;
+
+    for (int i = 0; i < popSize; i += 2)
+    {
+        genann* p1 = acceptReject();
+        genann* p2 = acceptReject();
+
+
+        genann* c1 = genann_init(inputNeuronCnt, hiddenLayerCnt, hiddenNeuronCnt, outputNeuronCnt);
+        genann* c2 = genann_init(inputNeuronCnt, hiddenLayerCnt, hiddenNeuronCnt, outputNeuronCnt);
+        new_pop[i] = c1;
+        new_pop[i + 1] = c2;
+
+        // crossover
+        int crossOverPoint = rand() % weightCnt;
+        for (int j = 0; j < weightCnt; j++)
+        {
+            if (j < crossOverPoint)
+            {
+                c1->weight[j] = p1->weight[j];
+                c2->weight[j] = p2->weight[j];
+            }
+            else
+            {
+                c1->weight[j] = p2->weight[j];
+                c2->weight[j] = p1->weight[j];
+            }
+        }
+
+        // mutation
+        if ((float)rand() < mutationChance)
+        {
+            int weightIdx = rand() % weightCnt;
+            float randFloat = (float)rand();
+
+            c1->weight[weightIdx] = randFloat;
+            c2->weight[weightCnt - 1 - weightIdx] = randFloat;
+        }
+    }
+
+
+    for (int i = 0; i < popSize; i++)
+    {
+        genann_free(population[i]);
+        population[i] = genann_copy(new_pop[i]);
+        genann_free(new_pop[i]);
+    }    
+}
+
 
 void next()
 {
     if (currentCycle == cycles - 1)
     {
         //stop and save the best individual to a file
-        return;
+        time_t t = time(NULL);
+        struct tm tm = *localtime(&t);
+        
+        int idx[popSize];
+        for (int i = 0; i < popSize; i++)
+            idx[i] = i;
+
+        // sort fitness in descending order
+        for (int i = 0; i < popSize - 1; i++)
+        {
+            for (int j = i + 1; j < popSize; j++)
+            {
+                if (fitness[idx[j]] > fitness[idx[i]])
+                {
+                    int temp = idx[i];
+                    idx[i] = idx[j];
+                    idx[j] = temp;
+                }
+            }
+        }
+
+        for (int i = 0; i < popSize; i++)
+        {
+            //char str[20];
+            //sprintf(str, "%02d_%02d_%02d_%05d", tm.tm_mday, tm.tm_hour, tm.tm_min, fitness[i]);
+            char path[10];
+            sprintf(path, "%02d.txt", i);
+            FILE* out = fopen(path, "w");
+            genann_write(population[idx[i]], out);
+            fclose(out);
+        }
+
+
+        exit(0);
+        //return;
     }
 
     if (currentIndividual == popSize - 1)
     {
-        // create pool for next generation
-        // crossover with mutation
+        crossover();
         currentIndividual = 0;
         currentCycle++;
         return;
@@ -136,17 +280,7 @@ void next()
     currentIndividual++;
 }
 
-/*
-    todo:
-    - maybe use same magnitude between input data
-        e. g. distance sensor gives back 200
-        divide by 10?
-        reason to do so: after a certain speed
-        the network becomes blind to any change
-        ha 45 felett minden 1 lesz a sigmoid után
-        akkor nem fog értesulni arrol hogy 100 megy vagy 50 nel
-        
-*/
+
 
 //double const* feed_forward(structCarState cs, float input[], )
 
@@ -215,6 +349,7 @@ void ConShutdown()
 void ConRestart()
 {
     prevDistRaced = 0.0f;
+    maxFitness = 1;
 
     printf("\n\ncounter:\t%d\n\n", counter);
     counter += 1;
