@@ -62,7 +62,7 @@ float mutationChance = 0.03f;
 #define popSize 2
 genann* population[popSize];
 int fitness[popSize];
-int maxFitness = 0;
+int maxFitness = 1;
 
 int currentIndividual = 0;
 int currentCycle = 0;
@@ -99,12 +99,17 @@ void Cinit(float* angles)
     // init random generator
     srand(time(0));
 
-    if (42) // start from random
+    // 0: random
+    // 1: prev
+    // 2: inference
+    int mode = 0;
+
+    if (mode == 0) // start from random
     {
         for (int i = 0; i < popSize; i++)
             population[i] = genann_init(inputNeuronCnt, hiddenLayerCnt, hiddenNeuronCnt, outputNeuronCnt);
     }
-    else // start from file
+    else if (mode == 1) // start from file
     {
         /*
         FILE* in = fopen("persist.txt", "r");
@@ -122,6 +127,8 @@ void Cinit(float* angles)
         }
 
     }
+    else if (mode == 2)
+        ;//inference
     
     prevDistRaced = 0.0f;
 
@@ -155,6 +162,9 @@ void evaluate(structCarState cs)
         fitness[currentIndividual] = 1;
     else
         fitness[currentIndividual] = points;
+
+    if (fitness[currentIndividual] > maxFitness)
+        maxFitness = fitness[currentIndividual];
 }
 
 genann* acceptReject()
