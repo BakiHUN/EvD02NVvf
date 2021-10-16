@@ -56,11 +56,12 @@ float clutch;
 float prevDistRaced = 0.0f;
 float laptimeThd = 5.0f;
 
-int cycles = 4;
+int cycles = 50;
 float mutationChance = 0.03f;
 
-#define popSize 4
+#define popSize 30
 genann* population[popSize];
+genann* inferenceNN = NULL;
 bool popIsInitialized = false;
 int fitness[popSize];
 int maxFitness = 1;
@@ -75,6 +76,10 @@ int currentCycle = 0;
 #define hiddenNeuronCnt 13
 #define outputNeuronCnt 3
 
+// 0: random
+// 1: prev
+// 2: inference
+int mode = 2;
 
 
 /*
@@ -90,6 +95,8 @@ int currentCycle = 0;
     - kivalasztani az inputokat
     - reward policy kitalalasa
     - feltetel hogy lealljon az egyed probalkozasa
+    // possible addition to input:
+    // z, trackpos
 
 */
 
@@ -111,11 +118,6 @@ void Cinit(float* angles)
         popIsInitialized = false;
     }
 
-
-    // 0: random
-    // 1: prev
-    // 2: inference
-    int mode = 0;
 
     if (mode == 0) // start from random
     {
@@ -144,7 +146,15 @@ void Cinit(float* angles)
         popIsInitialized = true;
     }
     else if (mode == 2)
-        ;//inference
+    {
+        if (inferenceNN != NULL)
+            genann_free(inferenceNN);
+
+        FILE* in = fopen("inference.txt", "r");
+        inferenceNN = genann_read(in);
+        fclose(in);
+    }
+        
 
     prevDistRaced = 0.0f;
 
@@ -315,9 +325,9 @@ structCarControl CDrive(structCarState cs)
 
     clutching(&cs, &clutch);
     int gear = getGear(&cs);
+    int meta = 0;
 
-    // possible addition to input:
-    // z, trackpos
+    
     float input[inputNeuronCnt];
     for (int i = 0; i < 19; i++)
         input[i] = cs.track[i];
@@ -325,8 +335,13 @@ structCarControl CDrive(structCarState cs)
     input[20] = cs.speedY;
     input[21] = cs.speedZ;
 
-    // feed forward
-    double const* prediction = genann_run(population[currentIndividual], input);
+
+    double const* prediction;
+    if (mode == 0 || mode == 1)
+        prediction = genann_run(population[currentIndividual], input);
+    else
+        prediction = genann_run(inferenceNN, input);
+
     double accel = prediction[0];
     double brake = prediction[1];
     double steer = prediction[2] * 2 - 1;
@@ -336,30 +351,14 @@ structCarControl CDrive(structCarState cs)
     else
         accel = 0;
 
-    evaluate(cs);
-
-    if (0)
+    if (mode == 0 || mode == 1)
     {
-        printf("\n\n\ninput data:");
-        for (int i = 0; i < inputNeuronCnt; i++)
-            printf("\n%d:\t%f", i, input[i]);
-
-        printf("\n\n\nprediction:");
-        printf("\naccel:\t%f", accel);
-        printf("\nbrake:\t%f", brake);
-        printf("\nsteer:\t%f", steer);
-        printf("\nfitness:\t%d", fitness[currentIndividual]);
-
-        printf("\n\nspeedx:\t%f", cs.speedX);
-        printf("\nspeedy:\t%f", cs.speedY);
-        printf("\nspeedz:\t%f", cs.speedZ);
-    }
-
-    int meta = 0;
-    if (cs.curLapTime > laptimeThd)
-    {
-        meta = 1;
-        next();
+        evaluate(cs);
+        if (cs.curLapTime > laptimeThd)
+        {
+            meta = 1;
+            next();
+        }
     }
 
     structCarControl cc = { accel, brake, gear, steer, clutch, meta };
