@@ -8,45 +8,45 @@
 
 
 /* Gear Changing Constants*/
-const int gearUp[6]=
-    {
-        5000,6000,6000,6500,7000,0
-    };
-const int gearDown[6]=
-    {
-        0,2500,3000,3000,3500,3500
-    };
+const int gearUp[6] =
+{
+    5000,6000,6000,6500,7000,0
+};
+const int gearDown[6] =
+{
+    0,2500,3000,3000,3500,3500
+};
 
 /* Stuck constants*/
 const int stuckTime = 25;
 const float stuckAngle = .523598775; //PI/6
 
 /* Accel and Brake Constants*/
-const float maxSpeedDist=70;
-const float maxSpeed=150;
+const float maxSpeedDist = 70;
+const float maxSpeed = 150;
 const float sin5 = 0.08716;
 const float cos5 = 0.99619;
 
 /* Steering constants*/
-const float steerLock=0.785398;
-const float steerSensitivityOffset=80.0;
-const float wheelSensitivityCoeff=1;
+const float steerLock = 0.785398;
+const float steerSensitivityOffset = 80.0;
+const float wheelSensitivityCoeff = 1;
 
 /* ABS Filter Constants */
-const float wheelRadius[4]={0.3179,0.3179,0.3276,0.3276};
-const float absSlip=2.0;
-const float absRange=3.0;
-const float absMinSpeed=3.0;
+const float wheelRadius[4] = { 0.3179,0.3179,0.3276,0.3276 };
+const float absSlip = 2.0;
+const float absRange = 3.0;
+const float absMinSpeed = 3.0;
 
 /* Clutch constants */
-const float clutchMax=0.5;
-const float clutchDelta=0.05;
-const float clutchRange=0.82;
-const float clutchDeltaTime=0.02;
-const float clutchDeltaRaced=10;
-const float clutchDec=0.01;
-const float clutchMaxModifier=1.3;
-const float clutchMaxTime=1.5;
+const float clutchMax = 0.5;
+const float clutchDelta = 0.05;
+const float clutchRange = 0.82;
+const float clutchDeltaTime = 0.02;
+const float clutchDeltaRaced = 10;
+const float clutchDec = 0.01;
+const float clutchMaxModifier = 1.3;
+const float clutchMaxTime = 1.5;
 
 int stuck;
 float clutch;
@@ -59,7 +59,7 @@ float laptimeThd = 5.0f;
 int cycles = 4;
 float mutationChance = 0.03f;
 
-#define popSize 2
+#define popSize 4
 genann* population[popSize];
 bool popIsInitialized = false;
 int fitness[popSize];
@@ -145,7 +145,7 @@ void Cinit(float* angles)
     }
     else if (mode == 2)
         ;//inference
-    
+
     prevDistRaced = 0.0f;
 
     // set angles as {-90,-75,-60,-45,-30,20,15,10,5,0,5,10,15,20,30,45,60,75,90}
@@ -215,7 +215,6 @@ void crossover()
         genann* c2 = genann_init(inputNeuronCnt, hiddenLayerCnt, hiddenNeuronCnt, outputNeuronCnt);
         new_pop[i] = c1;
         new_pop[i + 1] = c2;
-           
 
         // crossover
         int crossOverPoint = rand() % weightCnt;
@@ -249,61 +248,56 @@ void crossover()
     {
         genann_free(population[i]);
         population[i] = genann_copy(new_pop[i]);
-
-    }    
+        genann_free(new_pop[i]);
+    }
 }
 
 
 void next()
 {
-    
-
     if (currentIndividual == popSize - 1)
     {
-        crossover();
-        if (currentCycle == cycles-1)
-    {
-        //stop and save the best individual to a file
-        time_t t = time(NULL);
-        struct tm tm = *localtime(&t);
-        
-        int idx[popSize];
-        for (int i = 0; i < popSize; i++)
-            idx[i] = i;
-
-        // sort fitness in descending order
-        for (int i = 0; i < popSize - 1; i++)
+        if (currentCycle == cycles - 1)
         {
-            for (int j = i + 1; j < popSize; j++)
+            //stop and save the best individual to a file
+            time_t t = time(NULL);
+            struct tm tm = *localtime(&t);
+
+            int idx[popSize];
+            for (int i = 0; i < popSize; i++)
+                idx[i] = i;
+
+            // sort fitness in descending order
+            for (int i = 0; i < popSize - 1; i++)
             {
-                if (fitness[idx[j]] > fitness[idx[i]])
+                for (int j = i + 1; j < popSize; j++)
                 {
-                    int temp = idx[i];
-                    idx[i] = idx[j];
-                    idx[j] = temp;
+                    if (fitness[idx[j]] > fitness[idx[i]])
+                    {
+                        int temp = idx[i];
+                        idx[i] = idx[j];
+                        idx[j] = temp;
+                    }
                 }
             }
+
+            for (int i = 0; i < popSize; i++)
+            {
+                //char str[20];
+                //sprintf(str, "%02d_%02d_%02d_%05d", tm.tm_mday, tm.tm_hour, tm.tm_min, fitness[i]);
+                char path[10];
+                sprintf(path, "%02d.txt", i);
+                FILE* out = fopen(path, "w");
+                genann_write(population[idx[i]], out);
+                fclose(out);
+            }
+
+
+            exit(0);
+            //return;
         }
 
-        for (int i = 0; i < popSize; i++)
-        {
-            //char str[20];
-            //sprintf(str, "%02d_%02d_%02d_%05d", tm.tm_mday, tm.tm_hour, tm.tm_min, fitness[i]);
-            char path[10];
-            sprintf(path, "%02d.txt", i);
-            FILE* out = fopen(path, "w");
-            printf("%d",i);
-            genann_write(population[idx[i]], out);
-            fclose(out);
-        }
-
-
-        exit(42);
-        //return;
-    }
-
-
-
+        crossover();
         currentIndividual = 0;
         currentCycle++;
         return;
@@ -320,7 +314,7 @@ structCarControl CDrive(structCarState cs)
 {
 
     clutching(&cs, &clutch);
-    int gear = getGear(&cs); 
+    int gear = getGear(&cs);
 
     // possible addition to input:
     // z, trackpos
@@ -336,7 +330,7 @@ structCarControl CDrive(structCarState cs)
     double accel = prediction[0];
     double brake = prediction[1];
     double steer = prediction[2] * 2 - 1;
-    
+
     if (accel > brake)
         brake = 0;
     else
@@ -359,7 +353,7 @@ structCarControl CDrive(structCarState cs)
         printf("\n\nspeedx:\t%f", cs.speedX);
         printf("\nspeedy:\t%f", cs.speedY);
         printf("\nspeedz:\t%f", cs.speedZ);
-    } 
+    }
 
     int meta = 0;
     if (cs.curLapTime > laptimeThd)
@@ -389,85 +383,85 @@ void ConRestart()
 }
 
 
-int getGear(structCarState *cs)
+int getGear(structCarState* cs)
 {
 
     int gear = cs->gear;
-    int rpm  = cs->rpm;
+    int rpm = cs->rpm;
 
     // if gear is 0 (N) or -1 (R) just return 1 
-    if (gear<1)
+    if (gear < 1)
         return 1;
     // check if the RPM value of car is greater than the one suggested 
     // to shift up the gear from the current one     
-    if (gear <6 && rpm >= gearUp[gear-1])
+    if (gear < 6 && rpm >= gearUp[gear - 1])
         return gear + 1;
     else
-    	// check if the RPM value of car is lower than the one suggested 
-    	// to shift down the gear from the current one
-        if (gear > 1 && rpm <= gearDown[gear-1])
+        // check if the RPM value of car is lower than the one suggested 
+        // to shift down the gear from the current one
+        if (gear > 1 && rpm <= gearDown[gear - 1])
             return gear - 1;
         else // otherwhise keep current gear
             return gear;
 }
 
-float getSteer(structCarState *cs)
+float getSteer(structCarState* cs)
 {
-	// steering angle is compute by correcting the actual car angle w.r.t. to track 
-	// axis [cs->angle] and to adjust car position w.r.t to middle of track [cs->trackPos*0.5]
-    float targetAngle=(cs->angle-cs->trackPos*0.5);
+    // steering angle is compute by correcting the actual car angle w.r.t. to track 
+    // axis [cs->angle] and to adjust car position w.r.t to middle of track [cs->trackPos*0.5]
+    float targetAngle = (cs->angle - cs->trackPos * 0.5);
     // at high speed reduce the steering command to avoid loosing the control
     if (cs->speedX > steerSensitivityOffset)
-        return targetAngle/(steerLock*(cs->speedX-steerSensitivityOffset)*wheelSensitivityCoeff);
+        return targetAngle / (steerLock * (cs->speedX - steerSensitivityOffset) * wheelSensitivityCoeff);
     else
-        return (targetAngle)/steerLock;
+        return (targetAngle) / steerLock;
 
 }
 
-float getAccel(structCarState *cs)
+float getAccel(structCarState* cs)
 {
     // checks if car is out of track
     if (cs->trackPos < 1 && cs->trackPos > -1)
     {
         // reading of sensor at +5 degree w.r.t. car axis
-        float rxSensor=cs->track[10];
+        float rxSensor = cs->track[10];
         // reading of sensor parallel to car axis
-        float cSensor=cs->track[9];
+        float cSensor = cs->track[9];
         // reading of sensor at -5 degree w.r.t. car axis
-        float sxSensor=cs->track[8];
+        float sxSensor = cs->track[8];
 
         float targetSpeed;
 
         // track is straight and enough far from a turn so goes to max speed
-        if (cSensor>maxSpeedDist || (cSensor>=rxSensor && cSensor >= sxSensor))
+        if (cSensor > maxSpeedDist || (cSensor >= rxSensor && cSensor >= sxSensor))
             targetSpeed = maxSpeed;
         else
         {
             // approaching a turn on right
-            if(rxSensor>sxSensor)
+            if (rxSensor > sxSensor)
             {
                 // computing approximately the "angle" of turn
-                float h = cSensor*sin5;
-                float b = rxSensor - cSensor*cos5;
-                float sinAngle = b*b/(h*h+b*b);
+                float h = cSensor * sin5;
+                float b = rxSensor - cSensor * cos5;
+                float sinAngle = b * b / (h * h + b * b);
                 // estimate the target speed depending on turn and on how close it is
-                targetSpeed = maxSpeed*(cSensor*sinAngle/maxSpeedDist);
+                targetSpeed = maxSpeed * (cSensor * sinAngle / maxSpeedDist);
             }
             // approaching a turn on left
             else
             {
                 // computing approximately the "angle" of turn
-                float h = cSensor*sin5;
-                float b = sxSensor - cSensor*cos5;
-                float sinAngle = b*b/(h*h+b*b);
+                float h = cSensor * sin5;
+                float b = sxSensor - cSensor * cos5;
+                float sinAngle = b * b / (h * h + b * b);
                 // estimate the target speed depending on turn and on how close it is
-                targetSpeed = maxSpeed*(cSensor*sinAngle/maxSpeedDist);
+                targetSpeed = maxSpeed * (cSensor * sinAngle / maxSpeedDist);
             }
 
         }
 
         // accel/brake command is expontially scaled w.r.t. the difference between target speed and current one
-        return 2/(1+exp(cs->speedX - targetSpeed)) - 1;
+        return 2 / (1 + exp(cs->speedX - targetSpeed)) - 1;
     }
     else
         return 0.3; // when out of track returns a moderate acceleration command
@@ -478,14 +472,14 @@ float getAccel(structCarState *cs)
 
 
 
-float filterABS(structCarState *cs,float brake)
+float filterABS(structCarState* cs, float brake)
 {
-	// convert speed to m/s
-	float speed = cs->speedX / 3.6;
-	// when spedd lower than min speed for abs do nothing
+    // convert speed to m/s
+    float speed = cs->speedX / 3.6;
+    // when spedd lower than min speed for abs do nothing
     if (speed < absMinSpeed)
         return brake;
-    
+
     // compute the speed of wheels in m/s
     float slip = 0.0f;
     for (int i = 0; i < 4; i++)
@@ -493,56 +487,56 @@ float filterABS(structCarState *cs,float brake)
         slip += cs->wheelSpinVel[i] * wheelRadius[i];
     }
     // slip is the difference between actual speed of car and average speed of wheels
-    slip = speed - slip/4.0f;
+    slip = speed - slip / 4.0f;
     // when slip too high applu ABS
     if (slip > absSlip)
     {
-        brake = brake - (slip - absSlip)/absRange;
+        brake = brake - (slip - absSlip) / absRange;
     }
-    
+
     // check brake is not negative, otherwise set it to zero
-    if (brake<0)
-    	return 0;
+    if (brake < 0)
+        return 0;
     else
-    	return brake;
+        return brake;
 }
 
 
 
-void clutching(structCarState *cs, float *clutch)
+void clutching(structCarState* cs, float* clutch)
 {
-  float maxClutch = clutchMax;
+    float maxClutch = clutchMax;
 
-  // Check if the current situation is the race start
-  if (cs->curLapTime<clutchDeltaTime  && cs->stage == RACE && cs->distRaced < clutchDeltaRaced)
-    *clutch = maxClutch;
-
-  // Adjust the current value of the clutch
-  if(clutch > 0)
-  {
-    float delta = clutchDelta;
-    if (cs->gear < 2)
-	{
-      // Apply a stronger clutch output when the gear is one and the race is just started
-	  delta /= 2;
-      maxClutch *= clutchMaxModifier;
-      if (cs->curLapTime < clutchMaxTime)
+    // Check if the current situation is the race start
+    if (cs->curLapTime < clutchDeltaTime && cs->stage == RACE && cs->distRaced < clutchDeltaRaced)
         *clutch = maxClutch;
-	}
 
-    // check clutch is not bigger than maximum values
-	*clutch = fmin(maxClutch,*clutch);
-    
-	// if clutch is not at max value decrease it quite quickly
-	if (*clutch!=maxClutch)
-	{
-	  *clutch -= delta;
-	  *clutch = fmax(0.0,*clutch);
-	}
-	// if clutch is at max value decrease it very slowly
-	else
-		*clutch -= clutchDec;
-  }
+    // Adjust the current value of the clutch
+    if (clutch > 0)
+    {
+        float delta = clutchDelta;
+        if (cs->gear < 2)
+        {
+            // Apply a stronger clutch output when the gear is one and the race is just started
+            delta /= 2;
+            maxClutch *= clutchMaxModifier;
+            if (cs->curLapTime < clutchMaxTime)
+                *clutch = maxClutch;
+        }
+
+        // check clutch is not bigger than maximum values
+        *clutch = fmin(maxClutch, *clutch);
+
+        // if clutch is not at max value decrease it quite quickly
+        if (*clutch != maxClutch)
+        {
+            *clutch -= delta;
+            *clutch = fmax(0.0, *clutch);
+        }
+        // if clutch is at max value decrease it very slowly
+        else
+            *clutch -= clutchDec;
+    }
 }
 
 
