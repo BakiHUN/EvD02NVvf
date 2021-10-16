@@ -17,27 +17,6 @@ const int gearDown[6] =
     0,2500,3000,3000,3500,3500
 };
 
-/* Stuck constants*/
-const int stuckTime = 25;
-const float stuckAngle = .523598775; //PI/6
-
-/* Accel and Brake Constants*/
-const float maxSpeedDist = 70;
-const float maxSpeed = 150;
-const float sin5 = 0.08716;
-const float cos5 = 0.99619;
-
-/* Steering constants*/
-const float steerLock = 0.785398;
-const float steerSensitivityOffset = 80.0;
-const float wheelSensitivityCoeff = 1;
-
-/* ABS Filter Constants */
-const float wheelRadius[4] = { 0.3179,0.3179,0.3276,0.3276 };
-const float absSlip = 2.0;
-const float absRange = 3.0;
-const float absMinSpeed = 3.0;
-
 /* Clutch constants */
 const float clutchMax = 0.5;
 const float clutchDelta = 0.05;
