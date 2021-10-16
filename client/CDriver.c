@@ -53,13 +53,14 @@ float clutch;
 
 
 // CUSTOM STUFF FROM HERE
+float prevDamage = 0.0f;
 float prevDistRaced = 0.0f;
-float laptimeThd = 5.0f;
+float laptimeThd = 60.0f;
 
-int cycles = 50;
+int cycles = 60;
 float mutationChance = 0.03f;
 
-#define popSize 30
+#define popSize 20
 genann* population[popSize];
 genann* inferenceNN = NULL;
 bool popIsInitialized = false;
@@ -180,7 +181,14 @@ void evaluate(structCarState cs)
     int points = 0;
 
     // going is good mmmmkkaaaayyy???
-    points += (int)cs.distRaced - prevDistRaced;
+    
+    //if moves inside the track gets points;
+    if (cs.track > -1 && cs.track < 1) {
+        points += ((int)cs.distRaced - prevDistRaced)*4;
+    }
+    else {
+        points += ((int)cs.distRaced - prevDistRaced);
+    }
     //printf("\n%f", cs.distRaced - prevDistRaced);
     prevDistRaced = cs.distRaced;
 
@@ -293,8 +301,6 @@ void next()
 
             for (int i = 0; i < popSize; i++)
             {
-                //char str[20];
-                //sprintf(str, "%02d_%02d_%02d_%05d", tm.tm_mday, tm.tm_hour, tm.tm_min, fitness[i]);
                 char path[10];
                 sprintf(path, "%02d.txt", i);
                 FILE* out = fopen(path, "w");
@@ -304,7 +310,6 @@ void next()
 
 
             exit(0);
-            //return;
         }
 
         crossover();
@@ -315,10 +320,6 @@ void next()
 
     currentIndividual++;
 }
-
-
-
-//double const* feed_forward(structCarState cs, float input[], )
 
 structCarControl CDrive(structCarState cs)
 {
@@ -404,103 +405,6 @@ int getGear(structCarState* cs)
             return gear;
 }
 
-float getSteer(structCarState* cs)
-{
-    // steering angle is compute by correcting the actual car angle w.r.t. to track 
-    // axis [cs->angle] and to adjust car position w.r.t to middle of track [cs->trackPos*0.5]
-    float targetAngle = (cs->angle - cs->trackPos * 0.5);
-    // at high speed reduce the steering command to avoid loosing the control
-    if (cs->speedX > steerSensitivityOffset)
-        return targetAngle / (steerLock * (cs->speedX - steerSensitivityOffset) * wheelSensitivityCoeff);
-    else
-        return (targetAngle) / steerLock;
-
-}
-
-float getAccel(structCarState* cs)
-{
-    // checks if car is out of track
-    if (cs->trackPos < 1 && cs->trackPos > -1)
-    {
-        // reading of sensor at +5 degree w.r.t. car axis
-        float rxSensor = cs->track[10];
-        // reading of sensor parallel to car axis
-        float cSensor = cs->track[9];
-        // reading of sensor at -5 degree w.r.t. car axis
-        float sxSensor = cs->track[8];
-
-        float targetSpeed;
-
-        // track is straight and enough far from a turn so goes to max speed
-        if (cSensor > maxSpeedDist || (cSensor >= rxSensor && cSensor >= sxSensor))
-            targetSpeed = maxSpeed;
-        else
-        {
-            // approaching a turn on right
-            if (rxSensor > sxSensor)
-            {
-                // computing approximately the "angle" of turn
-                float h = cSensor * sin5;
-                float b = rxSensor - cSensor * cos5;
-                float sinAngle = b * b / (h * h + b * b);
-                // estimate the target speed depending on turn and on how close it is
-                targetSpeed = maxSpeed * (cSensor * sinAngle / maxSpeedDist);
-            }
-            // approaching a turn on left
-            else
-            {
-                // computing approximately the "angle" of turn
-                float h = cSensor * sin5;
-                float b = sxSensor - cSensor * cos5;
-                float sinAngle = b * b / (h * h + b * b);
-                // estimate the target speed depending on turn and on how close it is
-                targetSpeed = maxSpeed * (cSensor * sinAngle / maxSpeedDist);
-            }
-
-        }
-
-        // accel/brake command is expontially scaled w.r.t. the difference between target speed and current one
-        return 2 / (1 + exp(cs->speedX - targetSpeed)) - 1;
-    }
-    else
-        return 0.3; // when out of track returns a moderate acceleration command
-
-}
-
-
-
-
-
-float filterABS(structCarState* cs, float brake)
-{
-    // convert speed to m/s
-    float speed = cs->speedX / 3.6;
-    // when spedd lower than min speed for abs do nothing
-    if (speed < absMinSpeed)
-        return brake;
-
-    // compute the speed of wheels in m/s
-    float slip = 0.0f;
-    for (int i = 0; i < 4; i++)
-    {
-        slip += cs->wheelSpinVel[i] * wheelRadius[i];
-    }
-    // slip is the difference between actual speed of car and average speed of wheels
-    slip = speed - slip / 4.0f;
-    // when slip too high applu ABS
-    if (slip > absSlip)
-    {
-        brake = brake - (slip - absSlip) / absRange;
-    }
-
-    // check brake is not negative, otherwise set it to zero
-    if (brake < 0)
-        return 0;
-    else
-        return brake;
-}
-
-
 
 void clutching(structCarState* cs, float* clutch)
 {
@@ -537,85 +441,3 @@ void clutching(structCarState* cs, float* clutch)
             *clutch -= clutchDec;
     }
 }
-
-
-
-/*
-    if(cs.stage != cs.prevStage)
-    {
-        cs.prevStage = cs.stage;
-    }
-    // check if car is currently stuck
-    if ( fabs(cs.angle) > stuckAngle )
-    {
-        // update stuck counter
-        stuck++;
-    }
-    else
-    {
-        // if not stuck reset stuck counter
-        stuck = 0;
-    }
-
-    // after car is stuck for a while apply recovering policy
-    if (stuck > stuckTime)
-    {
-        //set gear and sterring command assuming car is
-        // pointing in a direction out of track
-
-        // to bring car parallel to track axis
-        float steer = - cs.angle / steerLock;
-        int gear=-1; // gear R
-
-        // if car is pointing in the correct direction revert gear and steer
-        if (cs.angle*cs.trackPos>0)
-        {
-            gear = 1;
-            steer = -steer;
-        }
-
-        // Calculate clutching
-        clutching(&cs,&clutch);
-
-        // build a CarControl variable and return it
-        structCarControl cc = {1.0f,0.0f,gear,steer,clutch};
-        return cc;
-    }
-
-    else // car is not stuck
-    {
-        // compute accel/brake command
-        float accel_and_brake = getAccel(&cs);
-        // compute gear
-        int gear = getGear(&cs);
-        // compute steering
-        float steer = getSteer(&cs);
-
-
-        // normalize steering
-        if (steer < -1)
-            steer = -1;
-        if (steer > 1)
-            steer = 1;
-
-        // set accel and brake from the joint accel/brake command
-        float accel,brake;
-        if (accel_and_brake>0)
-        {
-            accel = accel_and_brake;
-            brake = 0;
-        }
-        else
-        {
-            accel = 0;
-            // apply ABS to brake
-            brake = filterABS(&cs,-accel_and_brake);
-        }
-
-        // Calculate clutching
-        clutching(&cs,&clutch);
-
-        // build a CarControl variable and return it
-        structCarControl cc = {accel,brake,gear,steer,clutch};
-        return cc;
-    }*/
