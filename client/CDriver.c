@@ -34,12 +34,12 @@ float clutch;
 // CUSTOM STUFF FROM HERE
 float prevDamage = 0.0f;
 float prevDistRaced = 0.0f;
-float laptimeThd = 15.0f;
+float laptimeThd = 120.0f;
 
-int cycles = 10;
+int cycles = 30;
 float mutationChance = 0.01f;
 
-#define popSize 10
+#define popSize 30
 genann* population[popSize];
 genann* inferenceNN = NULL;
 bool popIsInitialized = false;
@@ -50,6 +50,8 @@ bool isFintessInitid = false;
 int currentIndividual = 0;
 int currentCycle = 0;
 
+int stuck = 0;
+int maxStuck = 300;
 
 // neural network architecture
 #define inputNeuronCnt 9
@@ -72,7 +74,7 @@ const char* crossover_log_path = "crossover_log.txt";
         reason to do so: after a certain speed
         the network becomes blind to any change
         ha 45 felett minden 1 lesz a sigmoid után
-        akkor nem fog értesulni arrol hogy 100 megy vagy 50 nel
+        akkor nem fog ertesulni arrol hogy 100 megy vagy 50 nel
 
     - kivalasztani az inputokat
     - reward policy kitalalasa
@@ -84,8 +86,6 @@ const char* crossover_log_path = "crossover_log.txt";
 */
 
 
-// only for program flow exploration
-int counter = 0;
 
 
 //gives 19 angles for the distance sensors
@@ -100,9 +100,7 @@ void Cinit(float* angles)
         srand(time(0));
         isFintessInitid = true;
     }
-    
 
-    
 
     if (popIsInitialized)
     {
@@ -133,14 +131,15 @@ void Cinit(float* angles)
 
         popIsInitialized = true;
     }
-    else if (mode == 2)
+    else if (mode == 2) //inference
     {
         if (inferenceNN != NULL)
-            genann_free(inferenceNN);
-
-        FILE* in = fopen("02.txt", "r");
-        inferenceNN = genann_read(in);
-        fclose(in);
+        {
+            FILE* in = fopen("00.txt", "r");
+            inferenceNN = genann_read(in);
+            fclose(in);
+        }
+        //genann_free(inferenceNN);       
     }
         
 
@@ -164,27 +163,35 @@ void Cinit(float* angles)
 void evaluate(structCarState cs)
 {
     int points = 0;
+    float distDiff = cs.distRaced - prevDistRaced;
     //printf("\ndistRaced:\t%02f", cs.distRaced);
+    if ((cs.distRaced - prevDistRaced) <= 0.001f)
+        stuck++;
+    else
+        stuck = 0;
+    //printf("\tStuck: %d", stuck);
+    //printf("\tasd: %f\n", distDiff);
+
     
     if (cs.distRaced > 0.0f)
     {
         //if moves inside the track gets points;
         if (cs.trackPos > -1 && cs.trackPos < 1) {
-            int multiplier = 10;
-            points += (int)((cs.distRaced - prevDistRaced) * multiplier);
-            //printf("\npoints from moving inside:\t%d", (int)(cs.distRaced - prevDistRaced) * 4);
+            int multiplier = 15;
+            points += (int)((distDiff) * multiplier);
+            //printf("\npoints from moving inside:\t%d", (int)(distDiff) * 4);
         }
         else {
             int multiplier = 2;
-            points += (int)(cs.distRaced - prevDistRaced) * multiplier;
-            //printf("\npoints from moving outside:\t%d", (int)(cs.distRaced - prevDistRaced));
+            points += (int)(distDiff) * multiplier;
+            //printf("\npoints from moving outside:\t%d", (int)(distDiff));
         }
         prevDistRaced = cs.distRaced;
     }
     
     
     //damage punishment
-    float dmgMultiplier = 1.0f;
+    float dmgMultiplier = 0.5f;
     if (cs.damage != prevDamage) {
         points += (int)(prevDamage - cs.damage) * dmgMultiplier;
         prevDamage = cs.damage;
@@ -228,7 +235,6 @@ genann* acceptReject()
             return population[parentIdx];
         }
             
-
         counter++;
     }
 }
@@ -237,6 +243,11 @@ void crossover()
 {
     genann* new_pop[popSize];
     int weightCnt = population[0]->total_weights;
+
+    FILE* fp;
+    fp = fopen(crossover_log_path, "a");
+    fputs("\n\nCROSSOVER START", fp);
+    fclose(fp);
 
     for (int i = 0; i < popSize; i += 2)
     {
@@ -251,7 +262,6 @@ void crossover()
 
         // crossover
         int crossOverPoint = rand() % weightCnt;
-        
 
         for (int j = 0; j < weightCnt; j++)
         {
@@ -273,10 +283,12 @@ void crossover()
             FILE* fp;
             fp = fopen(crossover_log_path, "a");
             fputs("\n\nmutation happend", fp);
-            fclose(fp);
 
             int weightIdx = rand() % weightCnt;
-            float randFloat = (float)rand();
+            double randFloat = (double)((double)rand() / RAND_MAX - 0.5f);
+            char data[20];
+            sprintf(data, "\nnew weight:\t%f", randFloat);
+            fclose(fp);
 
             c1->weight[weightIdx] = randFloat;
             c2->weight[weightCnt - 1 - weightIdx] = randFloat;
@@ -298,12 +310,21 @@ void next()
     if (currentIndividual == popSize - 1)
     {
         printf("\nNEXT CYCLE:\t%2d", currentCycle);
+        
+        FILE* fp;
+        fp = fopen(crossover_log_path, "a");
+        fputs("\n\nfitness values", fp);
+
+        for (int i = 0; i < popSize; i++)
+        {
+            char data[20];
+            sprintf(data, "\n%d:\tfitness:\t%d", i, fitness[i]);
+            fputs(data, fp);
+        }
+        fclose(fp);
+
         if (currentCycle == cycles - 1)
         {
-            //stop and save the best individual to a file
-            time_t t = time(NULL);
-            struct tm tm = *localtime(&t);
-
             int idx[popSize];
             for (int i = 0; i < popSize; i++)
                 idx[i] = i;
@@ -322,9 +343,20 @@ void next()
                 }
             }
 
+            FILE* fp;
+            fp = fopen(crossover_log_path, "a");
+            fputs("\n\nidx array", fp);
             for (int i = 0; i < popSize; i++)
             {
-                char path[10];
+                char data[50];
+                sprintf(data, "\nidx[%d]:\t%d\t\tfitness:\t%d", i, idx[i], fitness[idx[i]]);
+                fputs(data, fp);
+            }
+            fclose(fp);
+
+            for (int i = 0; i < popSize; i++)
+            {
+                char path[50];
                 sprintf(path, "%02d.txt", i);
                 FILE* out = fopen(path, "w");
                 genann_write(population[idx[i]], out);
@@ -360,6 +392,7 @@ structCarControl CDrive(structCarState cs)
     int meta = 0;
 
     
+    //https://towardsdatascience.com/17-rules-of-thumb-for-building-a-neural-network-93356f9930af
     double input[inputNeuronCnt];
     input[0] = (double)cs.track[1] / 4;
     input[1] = (double)cs.track[5] / 4;
@@ -367,7 +400,6 @@ structCarControl CDrive(structCarState cs)
     input[3] = (double)cs.track[13] / 4;
     input[4] = (double)cs.track[17] / 4;
     input[5] = (double)cs.angle * 10; // cs.angle [-3,14, +3,14] in radian
-https://towardsdatascience.com/17-rules-of-thumb-for-building-a-neural-network-93356f9930af
     input[6] = (double)cs.trackPos * 10;
     input[7] = (double)cs.speedX / 5;
     input[8] = (double)cs.speedY;
@@ -377,7 +409,6 @@ https://towardsdatascience.com/17-rules-of-thumb-for-building-a-neural-network-9
     //    printf("\ninput_%02d:\t%f", i, input[i]);
 
     
-
     double* prediction;
     if (mode == 0 || mode == 1)
         prediction = genann_run(population[currentIndividual], input);
@@ -401,14 +432,15 @@ https://towardsdatascience.com/17-rules-of-thumb-for-building-a-neural-network-9
     if (mode == 0 || mode == 1)
     {
         evaluate(cs);
-        if (cs.curLapTime > laptimeThd)
+        if (cs.curLapTime > laptimeThd || stuck > maxStuck)
         {
             meta = 1;
             next();
+            stuck = 0;
         }
     }
 
-    //printf("\nfitness %02d:\t%d", currentIndividual, fitness[currentIndividual]);
+    //printf("\n gen: %d fitness %02d:\t%d", currentCycle, currentIndividual, fitness[currentIndividual]);
     //printf("\nlongitudnal speed:\t%f", input[7]);
     structCarControl cc = { accel, brake, gear, steer, clutch, meta };
     return cc;
@@ -424,9 +456,6 @@ void ConRestart()
 {
     prevDistRaced = 0.0f;
     prevDamage = 0.0f;
-
-    printf("\n\ncounter:\t%d\n\n", counter);
-    counter += 1;
     printf("Restarting the race!");
 }
 

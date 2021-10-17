@@ -5,6 +5,7 @@
 *.txt
 *.suo
 *.ipch
+torch/.vs
 
 ### C ###
 # Prerequisites
