@@ -34,12 +34,12 @@ float clutch;
 // CUSTOM STUFF FROM HERE
 float prevDamage = 0.0f;
 float prevDistRaced = 0.0f;
-float laptimeThd = 60.0f;
+float laptimeThd = 10.0f;
 
 int cycles = 10;
 float mutationChance = 0.03f;
 
-#define popSize 10
+#define popSize 20
 genann* population[popSize];
 genann* inferenceNN = NULL;
 bool popIsInitialized = false;
@@ -59,7 +59,7 @@ int currentCycle = 0;
 // 0: random
 // 1: prev
 // 2: inference
-int mode = 0;
+int mode = 2;
 
 
 /*
@@ -132,7 +132,7 @@ void Cinit(float* angles)
         if (inferenceNN != NULL)
             genann_free(inferenceNN);
 
-        FILE* in = fopen("10.txt", "r");
+        FILE* in = fopen("19.txt", "r");
         inferenceNN = genann_read(in);
         fclose(in);
     }
@@ -164,11 +164,11 @@ void evaluate(structCarState cs)
     //if moves inside the track gets points;
     if (cs.trackPos > -1 && cs.trackPos < 1) {
         points += ((int)cs.distRaced - prevDistRaced)*4;
-        printf("\npoints from moving inside:\t%d", ((int)cs.distRaced - (int)prevDistRaced) * 4);
+        //printf("\npoints from moving inside:\t%d", ((int)cs.distRaced - (int)prevDistRaced) * 4);
     }
     else {
         points += ((int)cs.distRaced - prevDistRaced);
-        printf("\npoints from moving outside:\t%d", (int)cs.distRaced - (int)prevDistRaced);
+        //printf("\npoints from moving outside:\t%d", (int)cs.distRaced - (int)prevDistRaced);
     }
     prevDistRaced = cs.distRaced;
     
@@ -177,7 +177,7 @@ void evaluate(structCarState cs)
     if (cs.damage != prevDamage) {
         points += (int)(prevDamage - cs.damage) * dmgMultiplier;
         prevDamage = cs.damage;
-        printf("\npoints from damage:\t%d", (int)((prevDamage - cs.damage) * dmgMultiplier));
+        //printf("\npoints from damage:\t%d", (int)((prevDamage - cs.damage) * dmgMultiplier));
     }
 
         
@@ -304,6 +304,10 @@ void next()
         crossover();
         currentIndividual = 0;
         currentCycle++;
+
+        for (int i = 0; i < popSize; i++)
+            fitness[i] = 1;
+
         return;
     }
 
@@ -326,8 +330,8 @@ structCarControl CDrive(structCarState cs)
     input[4] = (double)cs.track[17] / 4;
     input[5] = (double)cs.angle * 10; // cs.angle [-3,14, +3,14] in radian
 https://towardsdatascience.com/17-rules-of-thumb-for-building-a-neural-network-93356f9930af
-    input[6] = (double)cs.trackPos;
-    input[7] = (double)cs.speedX;
+    input[6] = (double)cs.trackPos * 10;
+    input[7] = (double)cs.speedX / 5;
     input[8] = (double)cs.speedY;
 
     //printf("\n\ninputs:");
@@ -366,7 +370,8 @@ https://towardsdatascience.com/17-rules-of-thumb-for-building-a-neural-network-9
         }
     }
 
-    printf("\nfitness:\t%d", fitness[currentIndividual]);
+    //printf("\nfitness:\t%d", fitness[currentIndividual]);
+    //printf("\nlongitudnal speed:\t%f", input[7]);
     structCarControl cc = { accel, brake, gear, steer, clutch, meta };
     return cc;
 }
