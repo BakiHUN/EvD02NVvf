@@ -36,10 +36,10 @@ float prevDamage = 0.0f;
 float prevDistRaced = 0.0f;
 float laptimeThd = 120.0f;
 
-int cycles = 30;
+int cycles = 10;
 float mutationChance = 0.01f;
 
-#define popSize 30
+#define popSize 10
 genann* population[popSize];
 genann* inferenceNN = NULL;
 bool popIsInitialized = false;
@@ -102,7 +102,7 @@ void Cinit(float* angles)
     }
 
 
-    if (popIsInitialized)
+    if (popIsInitialized
     {
         for (int i = 0; i < popSize; i++)
             genann_free(population[i]);
@@ -112,6 +112,7 @@ void Cinit(float* angles)
 
     if (mode == 0) // start from random
     {
+        printf("\n\nASDASDASDASDASDASDAS\n\n")
         for (int i = 0; i < popSize; i++)
             population[i] = genann_init(inputNeuronCnt, hiddenLayerCnt, hiddenNeuronCnt, outputNeuronCnt);
 
@@ -122,7 +123,7 @@ void Cinit(float* angles)
         for (int i = 0; i < popSize; i++)
         {
             char path[10];
-            sprintf(path, "%02d.txt", i);
+            sprintf(path, "%08d.txt", i);
 
             FILE* in = fopen(path, "r");
             population[i] = genann_read(in);
@@ -133,7 +134,7 @@ void Cinit(float* angles)
     }
     else if (mode == 2) //inference
     {
-        if (inferenceNN != NULL)
+        if (inferenceNN == NULL)
         {
             FILE* in = fopen("00.txt", "r");
             inferenceNN = genann_read(in);
@@ -257,6 +258,8 @@ void crossover()
 
         genann* c1 = genann_init(inputNeuronCnt, hiddenLayerCnt, hiddenNeuronCnt, outputNeuronCnt);
         genann* c2 = genann_init(inputNeuronCnt, hiddenLayerCnt, hiddenNeuronCnt, outputNeuronCnt);
+        //genann* c1 = genann_copy(p1);
+        //genann* c2 = genann_copy(p2);
         new_pop[i] = c1;
         new_pop[i + 1] = c2;
 
