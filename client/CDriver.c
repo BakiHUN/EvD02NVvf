@@ -34,12 +34,12 @@ float clutch;
 // CUSTOM STUFF FROM HERE
 float prevDamage = 0.0f;
 float prevDistRaced = 0.0f;
-float laptimeThd = 10.0f;
+float laptimeThd = 30.0f;
 
 int cycles = 10;
-float mutationChance = 0.03f;
+float mutationChance = 0.01f;
 
-#define popSize 20
+#define popSize 2
 genann* population[popSize];
 genann* inferenceNN = NULL;
 bool popIsInitialized = false;
@@ -59,7 +59,7 @@ int currentCycle = 0;
 // 0: random
 // 1: prev
 // 2: inference
-int mode = 2;
+int mode = 0;
 
 
 /*
@@ -89,6 +89,10 @@ int counter = 0;
 //gives 19 angles for the distance sensors
 void Cinit(float* angles)
 {
+    printf("\nCinit");
+    for (int i = 0; i < popSize; i++)
+        fitness[i] = 1;
+
     // init random generator
     srand(time(0));
 
@@ -106,9 +110,6 @@ void Cinit(float* angles)
             population[i] = genann_init(inputNeuronCnt, hiddenLayerCnt, hiddenNeuronCnt, outputNeuronCnt);
 
         popIsInitialized = true;
-
-        for (int i = 0; i < popSize; i++)
-            fitness[i] = 1;
     }
     else if (mode == 1) // start from file
     {
@@ -123,16 +124,13 @@ void Cinit(float* angles)
         }
 
         popIsInitialized = true;
-
-        for (int i = 0; i < popSize; i++)
-            fitness[i] = 1;
     }
     else if (mode == 2)
     {
         if (inferenceNN != NULL)
             genann_free(inferenceNN);
 
-        FILE* in = fopen("19.txt", "r");
+        FILE* in = fopen("02.txt", "r");
         inferenceNN = genann_read(in);
         fclose(in);
     }
@@ -159,20 +157,25 @@ void Cinit(float* angles)
 
 void evaluate(structCarState cs)
 {
-    int points = 1;
+    int points = 0;
+    //printf("\ndistRaced:\t%02f", cs.distRaced);
     
-    //if moves inside the track gets points;
-    if (cs.trackPos > -1 && cs.trackPos < 1) {
-        points += ((int)cs.distRaced - prevDistRaced)*4;
-        //printf("\npoints from moving inside:\t%d", ((int)cs.distRaced - (int)prevDistRaced) * 4);
+    if (0)//cs.distRaced > 0
+    {
+        //if moves inside the track gets points;
+        if (cs.trackPos > -1 && cs.trackPos < 1) {
+            points += (int)(cs.distRaced - prevDistRaced) * 10;
+            //printf("\npoints from moving inside:\t%d", (int)(cs.distRaced - prevDistRaced) * 4);
+        }
+        else {
+            points += (int)(cs.distRaced - prevDistRaced);
+            //printf("\npoints from moving outside:\t%d", (int)(cs.distRaced - prevDistRaced));
+        }
+        prevDistRaced = cs.distRaced;
     }
-    else {
-        points += ((int)cs.distRaced - prevDistRaced);
-        //printf("\npoints from moving outside:\t%d", (int)cs.distRaced - (int)prevDistRaced);
-    }
-    prevDistRaced = cs.distRaced;
     
-
+    
+    //damage punishment
     float dmgMultiplier = 1.0f;
     if (cs.damage != prevDamage) {
         points += (int)(prevDamage - cs.damage) * dmgMultiplier;
@@ -180,7 +183,6 @@ void evaluate(structCarState cs)
         //printf("\npoints from damage:\t%d", (int)((prevDamage - cs.damage) * dmgMultiplier));
     }
 
-        
     fitness[currentIndividual] += points;
     if (fitness[currentIndividual] < 1)
         fitness[currentIndividual] = 1;
@@ -264,6 +266,7 @@ void next()
 {
     if (currentIndividual == popSize - 1)
     {
+        printf("\nNEXT CYCLE:\t%2d", currentCycle);
         if (currentCycle == cycles - 1)
         {
             //stop and save the best individual to a file
@@ -310,6 +313,9 @@ void next()
 
         return;
     }
+
+    prevDamage = 0.0f;
+    prevDistRaced = 0.0f;
 
     currentIndividual++;
 }
@@ -370,7 +376,7 @@ https://towardsdatascience.com/17-rules-of-thumb-for-building-a-neural-network-9
         }
     }
 
-    //printf("\nfitness:\t%d", fitness[currentIndividual]);
+    printf("\nfitness %2d:\t%d", currentIndividual, fitness[currentIndividual]);
     //printf("\nlongitudnal speed:\t%f", input[7]);
     structCarControl cc = { accel, brake, gear, steer, clutch, meta };
     return cc;
@@ -385,6 +391,7 @@ void ConShutdown()
 void ConRestart()
 {
     prevDistRaced = 0.0f;
+    prevDamage = 0.0f;
     maxFitness = 1;
 
     printf("\n\ncounter:\t%d\n\n", counter);
