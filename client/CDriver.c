@@ -34,17 +34,18 @@ float clutch;
 // CUSTOM STUFF FROM HERE
 float prevDamage = 0.0f;
 float prevDistRaced = 0.0f;
-float laptimeThd = 30.0f;
+float laptimeThd = 15.0f;
 
 int cycles = 10;
 float mutationChance = 0.01f;
 
-#define popSize 2
+#define popSize 10
 genann* population[popSize];
 genann* inferenceNN = NULL;
 bool popIsInitialized = false;
 int fitness[popSize];
 int maxFitness = 1;
+bool isFintessInitid = false;
 
 int currentIndividual = 0;
 int currentCycle = 0;
@@ -60,6 +61,7 @@ int currentCycle = 0;
 // 1: prev
 // 2: inference
 int mode = 0;
+const char* crossover_log_path = "crossover_log.txt";
 
 
 /*
@@ -89,12 +91,18 @@ int counter = 0;
 //gives 19 angles for the distance sensors
 void Cinit(float* angles)
 {
-    printf("\nCinit");
-    for (int i = 0; i < popSize; i++)
-        fitness[i] = 1;
+    if (!isFintessInitid)
+    {
+        for (int i = 0; i < popSize; i++)
+            fitness[i] = 1;
+        
+        // init random generator
+        srand(time(0));
+        isFintessInitid = true;
+    }
+    
 
-    // init random generator
-    srand(time(0));
+    
 
     if (popIsInitialized)
     {
@@ -136,8 +144,6 @@ void Cinit(float* angles)
     }
         
 
-    prevDistRaced = 0.0f;
-
     // set angles as {-90,-75,-60,-45,-30,20,15,10,5,0,5,10,15,20,30,45,60,75,90}
 
     for (int i = 0; i < 5; i++)
@@ -160,15 +166,17 @@ void evaluate(structCarState cs)
     int points = 0;
     //printf("\ndistRaced:\t%02f", cs.distRaced);
     
-    if (0)//cs.distRaced > 0
+    if (cs.distRaced > 0.0f)
     {
         //if moves inside the track gets points;
         if (cs.trackPos > -1 && cs.trackPos < 1) {
-            points += (int)(cs.distRaced - prevDistRaced) * 10;
+            int multiplier = 10;
+            points += (int)((cs.distRaced - prevDistRaced) * multiplier);
             //printf("\npoints from moving inside:\t%d", (int)(cs.distRaced - prevDistRaced) * 4);
         }
         else {
-            points += (int)(cs.distRaced - prevDistRaced);
+            int multiplier = 2;
+            points += (int)(cs.distRaced - prevDistRaced) * multiplier;
             //printf("\npoints from moving outside:\t%d", (int)(cs.distRaced - prevDistRaced));
         }
         prevDistRaced = cs.distRaced;
@@ -183,6 +191,7 @@ void evaluate(structCarState cs)
         //printf("\npoints from damage:\t%d", (int)((prevDamage - cs.damage) * dmgMultiplier));
     }
 
+    //printf("\npoints:\t%d", points);
     fitness[currentIndividual] += points;
     if (fitness[currentIndividual] < 1)
         fitness[currentIndividual] = 1;
@@ -194,16 +203,31 @@ void evaluate(structCarState cs)
 
 genann* acceptReject()
 {
+    FILE* fp;
+    fp = fopen(crossover_log_path, "a");
+
     int counter = 0;
     int safetyThd = 100;
     while (42)
     {
+        char data[200];
         int parentIdx = rand() % popSize;
         if (fitness[parentIdx] > rand() % maxFitness)
+        {
+            sprintf(data, "\nfound a parent with fitness:\t%d\tid:\t%d\tmaxfitness:\t%d", fitness[parentIdx], parentIdx, maxFitness);
+            fputs(data, fp);
+            fclose(fp);
             return population[parentIdx];
+        }
 
         if (counter > safetyThd)
+        {
+            sprintf(data, "\nfound a safety parent with fitness:\t%d\tid:\t%d\tmaxfitness:\t%d", fitness[parentIdx], parentIdx, maxFitness);
+            fputs(data, fp);
+            fclose(fp);
             return population[parentIdx];
+        }
+            
 
         counter++;
     }
@@ -227,6 +251,8 @@ void crossover()
 
         // crossover
         int crossOverPoint = rand() % weightCnt;
+        
+
         for (int j = 0; j < weightCnt; j++)
         {
             if (j < crossOverPoint)
@@ -242,8 +268,13 @@ void crossover()
         }
 
         // mutation
-        if ((float)rand() < mutationChance)
+        if ((float)rand()/RAND_MAX < mutationChance)
         {
+            FILE* fp;
+            fp = fopen(crossover_log_path, "a");
+            fputs("\n\nmutation happend", fp);
+            fclose(fp);
+
             int weightIdx = rand() % weightCnt;
             float randFloat = (float)rand();
 
@@ -307,6 +338,7 @@ void next()
         crossover();
         currentIndividual = 0;
         currentCycle++;
+        maxFitness = 1;
 
         for (int i = 0; i < popSize; i++)
             fitness[i] = 1;
@@ -376,7 +408,7 @@ https://towardsdatascience.com/17-rules-of-thumb-for-building-a-neural-network-9
         }
     }
 
-    printf("\nfitness %2d:\t%d", currentIndividual, fitness[currentIndividual]);
+    //printf("\nfitness %02d:\t%d", currentIndividual, fitness[currentIndividual]);
     //printf("\nlongitudnal speed:\t%f", input[7]);
     structCarControl cc = { accel, brake, gear, steer, clutch, meta };
     return cc;
@@ -392,7 +424,6 @@ void ConRestart()
 {
     prevDistRaced = 0.0f;
     prevDamage = 0.0f;
-    maxFitness = 1;
 
     printf("\n\ncounter:\t%d\n\n", counter);
     counter += 1;
