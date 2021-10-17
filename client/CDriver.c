@@ -36,10 +36,10 @@ float prevDamage = 0.0f;
 float prevDistRaced = 0.0f;
 float laptimeThd = 60.0f;
 
-int cycles = 60;
+int cycles = 10;
 float mutationChance = 0.03f;
 
-#define popSize 20
+#define popSize 10
 genann* population[popSize];
 genann* inferenceNN = NULL;
 bool popIsInitialized = false;
@@ -51,15 +51,15 @@ int currentCycle = 0;
 
 
 // neural network architecture
-#define inputNeuronCnt 22
-#define hiddenLayerCnt 2
-#define hiddenNeuronCnt 13
+#define inputNeuronCnt 9
+#define hiddenLayerCnt 0
+#define hiddenNeuronCnt 0
 #define outputNeuronCnt 3
 
 // 0: random
 // 1: prev
 // 2: inference
-int mode = 2;
+int mode = 0;
 
 
 /*
@@ -77,6 +77,7 @@ int mode = 2;
     - feltetel hogy lealljon az egyed probalkozasa
     // possible addition to input:
     // z, trackpos
+
 
 */
 
@@ -105,14 +106,12 @@ void Cinit(float* angles)
             population[i] = genann_init(inputNeuronCnt, hiddenLayerCnt, hiddenNeuronCnt, outputNeuronCnt);
 
         popIsInitialized = true;
+
+        for (int i = 0; i < popSize; i++)
+            fitness[i] = 1;
     }
     else if (mode == 1) // start from file
     {
-        /*
-        FILE* in = fopen("persist.txt", "r");
-        genann* second = genann_read(in);
-        fclose(in);
-        */
         for (int i = 0; i < popSize; i++)
         {
             char path[10];
@@ -124,13 +123,16 @@ void Cinit(float* angles)
         }
 
         popIsInitialized = true;
+
+        for (int i = 0; i < popSize; i++)
+            fitness[i] = 1;
     }
     else if (mode == 2)
     {
         if (inferenceNN != NULL)
             genann_free(inferenceNN);
 
-        FILE* in = fopen("inference.txt", "r");
+        FILE* in = fopen("10.txt", "r");
         inferenceNN = genann_read(in);
         fclose(in);
     }
@@ -157,24 +159,32 @@ void Cinit(float* angles)
 
 void evaluate(structCarState cs)
 {
-    int points = 0;
-
-    // going is good mmmmkkaaaayyy???
+    int points = 1;
     
     //if moves inside the track gets points;
-    if (cs.track > -1 && cs.track < 1) {
+    if (cs.trackPos > -1 && cs.trackPos < 1) {
         points += ((int)cs.distRaced - prevDistRaced)*4;
+        printf("\npoints from moving inside:\t%d", ((int)cs.distRaced - (int)prevDistRaced) * 4);
     }
     else {
         points += ((int)cs.distRaced - prevDistRaced);
+        printf("\npoints from moving outside:\t%d", (int)cs.distRaced - (int)prevDistRaced);
     }
-    //printf("\n%f", cs.distRaced - prevDistRaced);
     prevDistRaced = cs.distRaced;
+    
 
-    if (fitness[currentIndividual] + points < 1)
+    float dmgMultiplier = 1.0f;
+    if (cs.damage != prevDamage) {
+        points += (int)(prevDamage - cs.damage) * dmgMultiplier;
+        prevDamage = cs.damage;
+        printf("\npoints from damage:\t%d", (int)((prevDamage - cs.damage) * dmgMultiplier));
+    }
+
+        
+    fitness[currentIndividual] += points;
+    if (fitness[currentIndividual] < 1)
         fitness[currentIndividual] = 1;
-    else
-        fitness[currentIndividual] = points;
+
 
     if (fitness[currentIndividual] > maxFitness)
         maxFitness = fitness[currentIndividual];
@@ -308,15 +318,25 @@ structCarControl CDrive(structCarState cs)
     int meta = 0;
 
     
-    float input[inputNeuronCnt];
-    for (int i = 0; i < 19; i++)
-        input[i] = cs.track[i];
-    input[19] = cs.speedX;
-    input[20] = cs.speedY;
-    input[21] = cs.speedZ;
+    double input[inputNeuronCnt];
+    input[0] = (double)cs.track[1] / 4;
+    input[1] = (double)cs.track[5] / 4;
+    input[2] = (double)cs.track[9] / 4;
+    input[3] = (double)cs.track[13] / 4;
+    input[4] = (double)cs.track[17] / 4;
+    input[5] = (double)cs.angle * 10; // cs.angle [-3,14, +3,14] in radian
+https://towardsdatascience.com/17-rules-of-thumb-for-building-a-neural-network-93356f9930af
+    input[6] = (double)cs.trackPos;
+    input[7] = (double)cs.speedX;
+    input[8] = (double)cs.speedY;
 
+    //printf("\n\ninputs:");
+    //for (int i = 0; i < inputNeuronCnt; i++)
+    //    printf("\ninput_%02d:\t%f", i, input[i]);
 
-    double const* prediction;
+    
+
+    double* prediction;
     if (mode == 0 || mode == 1)
         prediction = genann_run(population[currentIndividual], input);
     else
@@ -326,6 +346,11 @@ structCarControl CDrive(structCarState cs)
     double brake = prediction[1];
     double steer = prediction[2] * 2 - 1;
 
+    //printf("\n\outputs:");
+    //printf("\naccel:\t%f", accel);
+    //printf("\nbrake:\t%f", brake);
+    //printf("\nsteer:\t%f", steer);
+    
     if (accel > brake)
         brake = 0;
     else
@@ -341,6 +366,7 @@ structCarControl CDrive(structCarState cs)
         }
     }
 
+    printf("\nfitness:\t%d", fitness[currentIndividual]);
     structCarControl cc = { accel, brake, gear, steer, clutch, meta };
     return cc;
 }
