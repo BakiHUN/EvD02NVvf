@@ -38,10 +38,10 @@ float prevDamage = 0.0f;
 float prevDistRaced = 0.0f;
 float laptimeThd = 180.0f;
 
-int cycles = 1000;
+int cycles = 100;
 float mutationChance = 0.05f;
 
-#define popSize 40
+#define popSize 50
 genann* population[popSize];
 genann* inferenceNN = NULL;
 bool popIsInitialized = false;
@@ -64,7 +64,7 @@ int maxStuck = 300;
 // 0: random
 // 1: prev
 // 2: inference
-int mode = 0;
+int mode = 2;
 const char* crossover_log_path = "crossover_log.txt";
 
 
@@ -140,7 +140,7 @@ void Cinit(float* angles)
     {
         if (inferenceNN == NULL)
         {
-            FILE* in = fopen("gen003/00.txt", "r");
+            FILE* in = fopen("30.txt", "r");
             inferenceNN = genann_read(in);
             fclose(in);
         }
