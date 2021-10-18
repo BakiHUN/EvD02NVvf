@@ -6,7 +6,7 @@
 #include <stdbool.h>
 #include <time.h>
 
-
+bool dummy = true;
 /* Gear Changing Constants*/
 const int gearUp[6] =
 {
@@ -34,12 +34,12 @@ float clutch;
 // CUSTOM STUFF FROM HERE
 float prevDamage = 0.0f;
 float prevDistRaced = 0.0f;
-float laptimeThd = 120.0f;
+float laptimeThd = 60.0f;
 
-int cycles = 10;
+int cycles = 60;
 float mutationChance = 0.01f;
 
-#define popSize 10
+#define popSize 30
 genann* population[popSize];
 genann* inferenceNN = NULL;
 bool popIsInitialized = false;
@@ -62,7 +62,7 @@ int maxStuck = 300;
 // 0: random
 // 1: prev
 // 2: inference
-int mode = 0;
+int mode = 2;
 const char* crossover_log_path = "crossover_log.txt";
 
 
@@ -102,21 +102,23 @@ void Cinit(float* angles)
     }
 
 
-    if (popIsInitialized
+    /*if (popIsInitialized)
     {
         for (int i = 0; i < popSize; i++)
             genann_free(population[i]);
         popIsInitialized = false;
-    }
+
+    }*/
 
 
-    if (mode == 0) // start from random
+    if (mode == 0 && dummy) // start from random
     {
-        printf("\n\nASDASDASDASDASDASDAS\n\n")
+        //printf("\n\nASDASDASDASDASDASDAS\n\n");
         for (int i = 0; i < popSize; i++)
             population[i] = genann_init(inputNeuronCnt, hiddenLayerCnt, hiddenNeuronCnt, outputNeuronCnt);
 
         popIsInitialized = true;
+        dummy = false;
     }
     else if (mode == 1) // start from file
     {
@@ -289,7 +291,7 @@ void crossover()
 
             int weightIdx = rand() % weightCnt;
             double randFloat = (double)((double)rand() / RAND_MAX - 0.5f);
-            char data[20];
+            char data[50];
             sprintf(data, "\nnew weight:\t%f", randFloat);
             fclose(fp);
 
@@ -364,6 +366,13 @@ void next()
                 FILE* out = fopen(path, "w");
                 genann_write(population[idx[i]], out);
                 fclose(out);
+                if (popIsInitialized)
+                {
+                    for (int i = 0; i < popSize; i++)
+                        genann_free(population[i]);
+                    popIsInitialized = false;
+
+                }
             }
 
 
