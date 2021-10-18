@@ -55,6 +55,9 @@ int currentCycle = 0;
 int stuck = 0;
 int maxStuck = 300;
 
+float prevCurLapTime = -10.0f;
+int lapsCompleted = 0;
+
 // neural network architecture
 #define inputNeuronCnt 9
 #define hiddenLayerCnt 0
@@ -64,7 +67,7 @@ int maxStuck = 300;
 // 0: random
 // 1: prev
 // 2: inference
-int mode = 0;
+int mode = 2;
 const char* crossover_log_path = "crossover_log.txt";
 
 
@@ -137,7 +140,7 @@ void Cinit(float* angles)
     {
         if (inferenceNN == NULL)
         {
-            FILE* in = fopen("gen019/01.txt", "r");
+            FILE* in = fopen("goes_round.txt", "r");
             inferenceNN = genann_read(in);
             fclose(in);
         }
@@ -294,6 +297,11 @@ void crossover()
 
 void next()
 {
+    prevDamage = 0.0f;
+    prevDistRaced = 0.0f;
+    lapsCompleted = 0;
+    prevCurLapTime = -10.0f;
+
     if (currentIndividual == popSize - 1)
     {
         printf("\nNEXT CYCLE:\t%2d", currentCycle);
@@ -379,14 +387,19 @@ void next()
         return;
     }
 
-    prevDamage = 0.0f;
-    prevDistRaced = 0.0f;
-
     currentIndividual++;
 }
 
 structCarControl CDrive(structCarState cs)
 {
+    //printf("\n%f", cs.distFromStart);
+    //printf("\n%f", cs.curLapTime);
+
+    if (cs.curLapTime < prevCurLapTime)
+        lapsCompleted++;
+    prevCurLapTime = cs.curLapTime;
+    printf("\n%d", lapsCompleted);
+
 
     clutching(&cs, &clutch);
     int gear = getGear(&cs);
@@ -433,7 +446,7 @@ structCarControl CDrive(structCarState cs)
     if (mode == 0 || mode == 1)
     {
         evaluate(cs);
-        if (cs.curLapTime > laptimeThd || stuck > maxStuck)
+        if (cs.curLapTime > laptimeThd || stuck > maxStuck || lapsCompleted > 2)
         {
             meta = 1;
             next();
