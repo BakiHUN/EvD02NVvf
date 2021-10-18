@@ -34,12 +34,12 @@ float clutch;
 // CUSTOM STUFF FROM HERE
 float prevDamage = 0.0f;
 float prevDistRaced = 0.0f;
-float laptimeThd = 60.0f;
+float laptimeThd = 180.0f;
 
-int cycles = 60;
-float mutationChance = 0.01f;
+int cycles = 2;
+float mutationChance = 0.03f;
 
-#define popSize 30
+#define popSize 4
 genann* population[popSize];
 genann* inferenceNN = NULL;
 bool popIsInitialized = false;
@@ -138,7 +138,7 @@ void Cinit(float* angles)
     {
         if (inferenceNN == NULL)
         {
-            FILE* in = fopen("00.txt", "r");
+            FILE* in = fopen("02.txt", "r");
             inferenceNN = genann_read(in);
             fclose(in);
         }
@@ -180,7 +180,7 @@ void evaluate(structCarState cs)
     {
         //if moves inside the track gets points;
         if (cs.trackPos > -1 && cs.trackPos < 1) {
-            int multiplier = 15;
+            int multiplier = 8;
             points += (int)((distDiff) * multiplier);
             //printf("\npoints from moving inside:\t%d", (int)(distDiff) * 4);
         }
@@ -365,16 +365,15 @@ void next()
                 sprintf(path, "%02d.txt", i);
                 FILE* out = fopen(path, "w");
                 genann_write(population[idx[i]], out);
-                fclose(out);
-                if (popIsInitialized)
-                {
-                    for (int i = 0; i < popSize; i++)
-                        genann_free(population[i]);
-                    popIsInitialized = false;
-
-                }
+                fclose(out);    
             }
+            if (popIsInitialized)
+            {
+                for (int i = 0; i < popSize; i++)
+                    genann_free(population[i]);
+                popIsInitialized = false;
 
+            }
 
             exit(0);
         }
