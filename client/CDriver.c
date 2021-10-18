@@ -5,6 +5,8 @@
 #include <time.h>
 #include <stdbool.h>
 #include <time.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 bool dummy = true;
 /* Gear Changing Constants*/
@@ -36,8 +38,8 @@ float prevDamage = 0.0f;
 float prevDistRaced = 0.0f;
 float laptimeThd = 180.0f;
 
-int cycles = 2;
-float mutationChance = 0.03f;
+int cycles = 4;
+float mutationChance = 0.05f;
 
 #define popSize 4
 genann* population[popSize];
@@ -124,8 +126,8 @@ void Cinit(float* angles)
     {
         for (int i = 0; i < popSize; i++)
         {
-            char path[10];
-            sprintf(path, "%08d.txt", i);
+            char path[50];
+            sprintf(path, "%02d.txt", i);
 
             FILE* in = fopen(path, "r");
             population[i] = genann_read(in);
@@ -138,7 +140,7 @@ void Cinit(float* angles)
     {
         if (inferenceNN == NULL)
         {
-            FILE* in = fopen("02.txt", "r");
+            FILE* in = fopen("gen003/00.txt", "r");
             inferenceNN = genann_read(in);
             fclose(in);
         }
@@ -180,7 +182,7 @@ void evaluate(structCarState cs)
     {
         //if moves inside the track gets points;
         if (cs.trackPos > -1 && cs.trackPos < 1) {
-            int multiplier = 8;
+            int multiplier = 6;
             points += (int)((distDiff) * multiplier);
             //printf("\npoints from moving inside:\t%d", (int)(distDiff) * 4);
         }
@@ -194,7 +196,7 @@ void evaluate(structCarState cs)
     
     
     //damage punishment
-    float dmgMultiplier = 0.5f;
+    float dmgMultiplier = 1.0f;
     if (cs.damage != prevDamage) {
         points += (int)(prevDamage - cs.damage) * dmgMultiplier;
         prevDamage = cs.damage;
@@ -327,6 +329,22 @@ void next()
             fputs(data, fp);
         }
         fclose(fp);
+        //Printing every generation
+        char dir[60];
+        struct stat st = { 0 };
+        sprintf(dir, "gen%03d", currentCycle);
+        if (stat(dir, &st) == -1) {
+            mkdir(dir, 0777);
+        }
+        for (int i = 0; i < popSize; i++)
+        {
+            char path[60];
+            sprintf(path, "gen%03d/%02d.txt", currentCycle, i);
+            FILE* out = fopen(path, "w");
+            genann_write(population[i], out);
+            fclose(out);
+        }
+
 
         if (currentCycle == cycles - 1)
         {
@@ -358,15 +376,7 @@ void next()
                 fputs(data, fp);
             }
             fclose(fp);
-
-            for (int i = 0; i < popSize; i++)
-            {
-                char path[50];
-                sprintf(path, "%02d.txt", i);
-                FILE* out = fopen(path, "w");
-                genann_write(population[idx[i]], out);
-                fclose(out);    
-            }
+          
             if (popIsInitialized)
             {
                 for (int i = 0; i < popSize; i++)
