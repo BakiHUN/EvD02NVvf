@@ -38,10 +38,10 @@ float prevDamage = 0.0f;
 float prevDistRaced = 0.0f;
 float laptimeThd = 180.0f;
 
-int cycles = 4;
+int cycles = 1000;
 float mutationChance = 0.05f;
 
-#define popSize 4
+#define popSize 40
 genann* population[popSize];
 genann* inferenceNN = NULL;
 bool popIsInitialized = false;
@@ -64,7 +64,7 @@ int maxStuck = 300;
 // 0: random
 // 1: prev
 // 2: inference
-int mode = 2;
+int mode = 0;
 const char* crossover_log_path = "crossover_log.txt";
 
 
@@ -183,12 +183,12 @@ void evaluate(structCarState cs)
         //if moves inside the track gets points;
         if (cs.trackPos > -1 && cs.trackPos < 1) {
             int multiplier = 6;
-            points += (int)((distDiff) * multiplier);
+            points += (int)(distDiff * multiplier);
             //printf("\npoints from moving inside:\t%d", (int)(distDiff) * 4);
         }
         else {
             int multiplier = 2;
-            points += (int)(distDiff) * multiplier;
+            points += (int)(distDiff * multiplier);
             //printf("\npoints from moving outside:\t%d", (int)(distDiff));
         }
         prevDistRaced = cs.distRaced;
