@@ -37,12 +37,12 @@ float clutch;
 // CUSTOM STUFF FROM HERE
 float prevDamage = 0.0f;
 float prevDistRaced = 0.0f;
-float laptimeThd = 10.0f;
+float laptimeThd = 180.0f;
 
 int cycles = 1000;
 float mutationChance = 0.15f;
 
-#define popSize 10
+#define popSize 30
 genann* population[popSize];
 genann* inferenceNN = NULL;
 bool popIsInitialized = false;
@@ -124,13 +124,15 @@ void Cinit(float* angles)
     else if (mode == 1 && dummy) // start from file
     {
 
-        FILE* in = fopen("example.txt", "r");
+        
         
         for (int i = 0; i < popSize; i++)
         {
+            FILE* in = fopen("example.txt", "r");
             population[i] = genann_read(in);
+            fclose(in);
         }
-        fclose(in);
+
         popIsInitialized = true;
         dummy = false;
     }
@@ -208,10 +210,10 @@ void crossover()
     genann* new_pop[popSize];
     int weightCnt = population[0]->total_weights;
 
-    FILE* fp;
+    /*FILE* fp;
     fp = fopen(crossover_log_path, "a");
     fputs("\n\nCROSSOVER START", fp);
-    fclose(fp);
+    fclose(fp);*/
     new_pop[0] = genann_copy(population[bestIdx]);
     for (int i = 1; i < popSize; i++)
     {
@@ -241,12 +243,16 @@ void next()
     meanFit = 0;
     if (currentIndividual == popSize - 1)
     {
+        for (int i = 0; i < popSize; i++) {
+            if (fitness[i] > fitness[bestIdx])
+                bestIdx = i;
+        }
         printf("\nNEXT CYCLE:\t%2d", currentCycle);
         
         FILE* fp;
         fp = fopen(crossover_log_path, "a");
         char gen[200];
-        sprintf(gen, "\n\n\nGeneration: %d",currentCycle);
+        sprintf(gen, "\n\n\nGeneration: %d\nBestIdx: %d\nFitness of bestIdx: %d\n",currentCycle,bestIdx,fitness[bestIdx]);
         fputs(gen, fp);
         fputs("\nfitness values", fp);
 
@@ -319,10 +325,6 @@ void next()
             }
 
             exit(0);
-        }
-        for (int i = 0; i < popSize; i++) {
-            if (fitness[i] > fitness[bestIdx])
-                bestIdx = i;
         }
         crossover();
         currentIndividual = 0;
