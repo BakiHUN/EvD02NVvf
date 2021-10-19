@@ -36,12 +36,12 @@ float clutch;
 // CUSTOM STUFF FROM HERE
 float prevDamage = 0.0f;
 float prevDistRaced = 0.0f;
-float laptimeThd = 180.0f;
+float laptimeThd = 60.0f;
 
-int cycles = 999;
+int cycles = 1000;
 float mutationChance = 0.05f;
 
-#define popSize 50
+#define popSize 10
 genann* population[popSize];
 genann* inferenceNN = NULL;
 bool popIsInitialized = false;
@@ -67,7 +67,7 @@ int lapsCompleted = 0;
 // 0: random
 // 1: prev
 // 2: inference
-int mode = 2;
+int mode = 0;
 const char* crossover_log_path = "crossover_log.txt";
 
 
@@ -122,12 +122,12 @@ void Cinit(float* angles)
         popIsInitialized = true;
         dummy = false;
     }
-    else if (mode == 1) // start from file
+    else if (mode == 1 && dummy) // start from file
     {
         for (int i = 0; i < popSize; i++)
         {
-            char path[50];
-            sprintf(path, "%02d.txt", i);
+            char path[100];
+            sprintf(path, "gen005/%02d.txt", i);
 
             FILE* in = fopen(path, "r");
             population[i] = genann_read(in);
@@ -135,6 +135,7 @@ void Cinit(float* angles)
         }
 
         popIsInitialized = true;
+        dummy = false;
     }
     else if (mode == 2) //inference
     {
@@ -278,7 +279,7 @@ void crossover()
 
             int weightIdx = rand() % weightCnt;
             double randFloat = (double)((double)rand() / RAND_MAX - 0.5f);
-            char data[50];
+            char data[200];
             sprintf(data, "\nnew weight:\t%f", randFloat);
             fclose(fp);
 
@@ -301,7 +302,7 @@ void next()
     prevDistRaced = 0.0f;
     lapsCompleted = 0;
     prevCurLapTime = -10.0f;
-
+    int meanFit = 0;
     if (currentIndividual == popSize - 1)
     {
         printf("\nNEXT CYCLE:\t%2d", currentCycle);
@@ -312,13 +313,18 @@ void next()
 
         for (int i = 0; i < popSize; i++)
         {
-            char data[20];
+            meanFit += fitness[i];
+            char data[200];
             sprintf(data, "\n%d:\tfitness:\t%d", i, fitness[i]);
             fputs(data, fp);
         }
+        char data[200];
+        meanFit /= popSize;
+        sprintf(data, "\nMean fitness:\t%d", meanFit);
+        fputs(data, fp);
         fclose(fp);
         //Printing every generation
-        char dir[60];
+        char dir[100];
         struct stat st = { 0 };
         sprintf(dir, "gen%03d", currentCycle);
         if (stat(dir, &st) == -1) {
@@ -326,7 +332,7 @@ void next()
         }
         for (int i = 0; i < popSize; i++)
         {
-            char path[60];
+            char path[100];
             sprintf(path, "gen%03d/%02d.txt", currentCycle, i);
             FILE* out = fopen(path, "w");
             genann_write(population[i], out);
@@ -359,7 +365,7 @@ void next()
             fputs("\n\nidx array", fp);
             for (int i = 0; i < popSize; i++)
             {
-                char data[50];
+                char data[200];
                 sprintf(data, "\nidx[%d]:\t%d\t\tfitness:\t%d", i, idx[i], fitness[idx[i]]);
                 fputs(data, fp);
             }
@@ -398,7 +404,7 @@ structCarControl CDrive(structCarState cs)
     if (cs.curLapTime < prevCurLapTime)
         lapsCompleted++;
     prevCurLapTime = cs.curLapTime;
-    printf("\n%d", lapsCompleted);
+    //printf("\n%d", lapsCompleted);
 
 
     clutching(&cs, &clutch);
