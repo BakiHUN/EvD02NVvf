@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 
 bool dummy = true;
+int meanFit = 0;
 /* Gear Changing Constants*/
 const int gearUp[6] =
 {
@@ -36,12 +37,12 @@ float clutch;
 // CUSTOM STUFF FROM HERE
 float prevDamage = 0.0f;
 float prevDistRaced = 0.0f;
-float laptimeThd = 60.0f;
+float laptimeThd = 10.0f;
 
 int cycles = 1000;
 float mutationChance = 0.05f;
 
-#define popSize 10
+#define popSize 50
 genann* population[popSize];
 genann* inferenceNN = NULL;
 bool popIsInitialized = false;
@@ -127,7 +128,7 @@ void Cinit(float* angles)
         for (int i = 0; i < popSize; i++)
         {
             char path[100];
-            sprintf(path, "gen005/%02d.txt", i);
+            sprintf(path, "%02d.txt", i);
 
             FILE* in = fopen(path, "r");
             population[i] = genann_read(in);
@@ -141,7 +142,7 @@ void Cinit(float* angles)
     {
         if (inferenceNN == NULL)
         {
-            FILE* in = fopen("goes_round.txt", "r");
+            FILE* in = fopen("08.txt", "r");
             inferenceNN = genann_read(in);
             fclose(in);
         }
@@ -180,6 +181,9 @@ void evaluate(structCarState cs)
     if (cs.distRaced > 0.0f)
     {
         int multiplier = 10;
+        if (cs.trackPos > -1 && cs.trackPos < 1)
+            multiplier = 12;
+        
         points += (int)(distDiff * multiplier);
         //printf("\npoints from moving:\t%d", points);
         /*
@@ -227,7 +231,7 @@ genann* acceptReject()
     {
         char data[200];
         int parentIdx = rand() % popSize;
-        if (fitness[parentIdx] > rand() % maxFitness)
+        if (fitness[parentIdx] > rand() % maxFitness && fitness[parentIdx]>meanFit*0.8f)
         {
             sprintf(data, "\nfound a parent with fitness:\t%d\tid:\t%d\tmaxfitness:\t%d", fitness[parentIdx], parentIdx, maxFitness);
             fputs(data, fp);
@@ -302,14 +306,17 @@ void next()
     prevDistRaced = 0.0f;
     lapsCompleted = 0;
     prevCurLapTime = -10.0f;
-    int meanFit = 0;
+    meanFit = 0;
     if (currentIndividual == popSize - 1)
     {
         printf("\nNEXT CYCLE:\t%2d", currentCycle);
         
         FILE* fp;
         fp = fopen(crossover_log_path, "a");
-        fputs("\n\nfitness values", fp);
+        char gen[200];
+        sprintf(gen, "\n\n\nGeneration: %d",currentCycle);
+        fputs(gen, fp);
+        fputs("\nfitness values", fp);
 
         for (int i = 0; i < popSize; i++)
         {
