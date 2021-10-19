@@ -40,7 +40,7 @@ float prevDistRaced = 0.0f;
 float laptimeThd = 180.0f;
 
 int cycles = 1000;
-float mutationChance = 0.15f;
+float mutationChance = 0.50f;
 
 #define popSize 30
 genann* population[popSize];
@@ -63,14 +63,14 @@ int bestIdx=0;
 
 // neural network architecture
 #define inputNeuronCnt 9
-#define hiddenLayerCnt 0
-#define hiddenNeuronCnt 0
+#define hiddenLayerCnt 1
+#define hiddenNeuronCnt 6
 #define outputNeuronCnt 3
 
 // 0: random
 // 1: prev
 // 2: inference
-int mode = 0;
+int mode = 2;
 const char* crossover_log_path = "crossover_log.txt";
 
 
@@ -123,16 +123,13 @@ void Cinit(float* angles)
     }
     else if (mode == 1 && dummy) // start from file
     {
-
-        
-        
         for (int i = 0; i < popSize; i++)
         {
-            FILE* in = fopen("example.txt", "r");
+            FILE* in = fopen("goes_round.txt", "r");
             population[i] = genann_read(in);
             fclose(in);
         }
-
+        
         popIsInitialized = true;
         dummy = false;
     }
@@ -140,7 +137,7 @@ void Cinit(float* angles)
     {
         if (inferenceNN == NULL)
         {
-            FILE* in = fopen("08.txt", "r");
+            FILE* in = fopen("with_hidden_layer/kedd_23_39/gen003/29.txt", "r");
             inferenceNN = genann_read(in);
             fclose(in);
         }    
@@ -165,7 +162,7 @@ void Cinit(float* angles)
 void evaluate(structCarState cs)
 {
     int points = 0;
-    float distDiff = cs.distRaced - prevDistRaced;
+    float distDiff = (cs.distRaced - prevDistRaced) * 10;
     //printf("\ndistRaced:\t%02f", cs.distRaced);
     if ((cs.distRaced - prevDistRaced) <= 0.001f)
         stuck++;
@@ -175,13 +172,10 @@ void evaluate(structCarState cs)
     //printf("\tasd: %f\n", distDiff);
 
     
-    if (cs.distRaced > 0.0f)
+    if (cs.distRaced > 0.0f && cs.trackPos > -1 && cs.trackPos < 1)
     {
         int multiplier = 10;
-        if (cs.trackPos > -1 && cs.trackPos < 1)
-            multiplier = 12;
-        
-        points += (int)(distDiff * multiplier);
+        points += (int)(distDiff);
         //printf("\npoints from moving:\t%d", points);
         prevDistRaced = cs.distRaced;
     }
@@ -219,7 +213,7 @@ void crossover()
     {
         new_pop[i] = genann_copy(population[bestIdx]);
         for (int j = 0; j < weightCnt; j++) {
-            double mutation = RandomFloat(-0.01, 0.01);
+            double mutation = RandomFloat(-0.05, 0.05);
             if ((float)rand() / RAND_MAX < mutationChance && new_pop[i]->weight[j] + mutation > -0.5f && new_pop[i]->weight[j] + mutation < 0.5)
                 new_pop[i]->weight[j] += mutation;
         }
@@ -241,6 +235,7 @@ void next()
     lapsCompleted = 0;
     prevCurLapTime = -10.0f;
     meanFit = 0;
+
     if (currentIndividual == popSize - 1)
     {
         for (int i = 0; i < popSize; i++) {
@@ -263,11 +258,13 @@ void next()
             sprintf(data, "\n%d:\tfitness:\t%d", i, fitness[i]);
             fputs(data, fp);
         }
+
         char data[200];
         meanFit /= popSize;
         sprintf(data, "\nMean fitness:\t%d", meanFit);
         fputs(data, fp);
         fclose(fp);
+
         //Printing every generation
         char dir[100];
         struct stat st = { 0 };
