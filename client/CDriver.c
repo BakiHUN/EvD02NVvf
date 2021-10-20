@@ -7,6 +7,10 @@
 #include <time.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <assert.h>
+#include <errno.h>
+#include <math.h>
+#include <string.h>
 /*
  * GENANN - Minimal C Artificial Neural Network
  *
@@ -34,7 +38,7 @@
 #ifndef GENANN_H
 #define GENANN_H
 
-#include <stdio.h>
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -113,12 +117,7 @@ extern "C" {
 #endif
 
 #endif /*GENANN_H*/
-#include <assert.h>
-#include <errno.h>
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+
 
 #ifndef genann_act
 #define genann_act_hidden genann_act_hidden_indirect
