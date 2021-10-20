@@ -444,10 +444,10 @@ float prevDamage = 0.0f;
 float prevDistRaced = 0.0f;
 float laptimeThd = 180.0f;
 
-int cycles = 1000;
+int cycles = 999;
 float mutationChance = 0.30f;
 
-#define popSize 40
+#define popSize 10
 genann* population[popSize];
 genann* inferenceNN = NULL;
 bool popIsInitialized = false;
@@ -719,7 +719,7 @@ void next()
 
             }
 
-            exit(0);
+            exit(11);
         }
         crossover();
         currentIndividual = 0;
@@ -729,7 +729,7 @@ void next()
         for (int i = 0; i < popSize; i++)
             fitness[i] = 1;
 
-        return;
+        return 69;
     }
 
     currentIndividual++;
@@ -768,7 +768,7 @@ structCarControl CDrive(structCarState cs)
     //    printf("\ninput_%02d:\t%f", i, input[i]);
 
     
-    double* prediction;
+    const double* prediction;
     if (mode == 0 || mode == 1)
         prediction = genann_run(population[currentIndividual], input);
     else
