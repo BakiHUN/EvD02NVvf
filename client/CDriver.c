@@ -40,7 +40,7 @@ float prevDistRaced = 0.0f;
 float laptimeThd = 180.0f;
 
 int cycles = 1000;
-float mutationChance = 0.50f;
+float mutationChance = 0.1f;
 
 #define popSize 30
 genann* population[popSize];
@@ -63,8 +63,8 @@ int bestIdx=0;
 
 // neural network architecture
 #define inputNeuronCnt 9
-#define hiddenLayerCnt 1
-#define hiddenNeuronCnt 6
+#define hiddenLayerCnt 0
+#define hiddenNeuronCnt 0
 #define outputNeuronCnt 3
 
 // 0: random
@@ -137,7 +137,7 @@ void Cinit(float* angles)
     {
         if (inferenceNN == NULL)
         {
-            FILE* in = fopen("with_hidden_layer/kedd_23_39/gen003/29.txt", "r");
+            FILE* in = fopen("goes_round.txt", "r");
             inferenceNN = genann_read(in);
             fclose(in);
         }    
@@ -172,7 +172,7 @@ void evaluate(structCarState cs)
     //printf("\tasd: %f\n", distDiff);
 
     
-    if (cs.distRaced > 0.0f && cs.trackPos > -1 && cs.trackPos < 1)
+    if (distDiff > 0.0f && cs.trackPos > -1 && cs.trackPos < 1)
     {
         int multiplier = 10;
         points += (int)(distDiff);
@@ -211,9 +211,9 @@ void crossover()
     new_pop[0] = genann_copy(population[bestIdx]);
     for (int i = 1; i < popSize; i++)
     {
-        new_pop[i] = genann_copy(population[bestIdx]);
+        new_pop[i] = genann_copy(new_pop[0]);
         for (int j = 0; j < weightCnt; j++) {
-            double mutation = RandomFloat(-0.05, 0.05);
+            double mutation = RandomFloat(-0.005, 0.005);
             if ((float)rand() / RAND_MAX < mutationChance && new_pop[i]->weight[j] + mutation > -0.5f && new_pop[i]->weight[j] + mutation < 0.5)
                 new_pop[i]->weight[j] += mutation;
         }
@@ -238,6 +238,7 @@ void next()
 
     if (currentIndividual == popSize - 1)
     {
+        bestIdx = 0;
         for (int i = 0; i < popSize; i++) {
             if (fitness[i] > fitness[bestIdx])
                 bestIdx = i;
