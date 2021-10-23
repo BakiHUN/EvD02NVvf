@@ -1,6 +1,7 @@
 Szervezéstől megkérdezni:
 - lesz-e több autó az úton
 - fix-e valami? autó, pálya?
+VÁLASZ: pénteken megtudjuk
 
 
 tasks:
@@ -24,6 +25,10 @@ tasks:
 - ellenőrizni, hogy Crestart vagy Cinit során kap-e pontokat a háló
     szóval van-e olyan állapot, amikor az eveluate fut, pedig még
     nem kéne, és közbe a cs.distRaced is faszságot ad vissza
+- a logolásban legyen benne, hogy épp mivel próbálkozott mint:
+    hidden layer van-e, neuronok száma, milyen multiplier...
+    mert nem fogjuk tudni, hogy épp mivel lett már elindítva
+    ha arrébb tesszük a logfile-t
 
 
 kísérletezés:
