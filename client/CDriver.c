@@ -521,44 +521,59 @@ float clutch;
 struct Individuum
 {
     genann* nn;
+    //float fitness;
 
 };
+
 
 static struct 
 {
     int cycles;
     float mutationChance;
     bool popIsInitialized;
-} GA = { 
-        .cycles = 999,
-        .mutationChance = 0.3f,
-        
-        .popIsInitialized = false
-       };
+    int curMaxFitness;
+    int curIndividuum;
+    int curCycle;
+} GA = 
+    { 
+     .cycles = 999,
+     .mutationChance = 0.3f,
+     .popIsInitialized = false,
+     .curMaxFitness = 1,
+     .curIndividuum = 0,
+     .curCycle = 0
+    };
+
 
 static struct
 {
     float laptimeThd;
-} RewardPolicy = {
-                   .laptimeThd = 180.0f,
-
-                 };
-
-
-float prevDamage = 0.0f;
-float prevDistRaced = 0.0f;
+    float dmgMultiplier;
+    
+    
+} RewardPolicy =
+{
+     .laptimeThd = 180.0f,
+     .dmgMultiplier = 1.0f,
+     
+     
+    };
 
 
 #define popSize 4
+#define inputNeuronCnt 9
+#define hiddenLayerCnt 0
+#define hiddenNeuronCnt 0
+#define outputNeuronCnt 3
+
+enum Mode { train_random, train_continue, inference };
+enum Mode mode = inference;
+
 genann* population[popSize];
 genann* inferenceNN = NULL;
 
 int fitness[popSize];
-int maxFitness = 1;
-bool isFintessInitid = false;
-
-int currentIndividual = 0;
-int currentCycle = 0;
+bool isFitnessInitid = false;
 
 int stuck = 0;
 int maxStuck = 300;
@@ -568,15 +583,11 @@ int lapsCompleted = 0;
 
 int bestIdx = 0;
 
-// neural network architecture
-#define inputNeuronCnt 9
-#define hiddenLayerCnt 0
-#define hiddenNeuronCnt 0
-#define outputNeuronCnt 3
+float prevDamage = 0.0f;
+float prevDistRaced = 0.0f;
 
 
-enum Mode {train_random, train_continue, inference};
-enum Mode mode = train_random;
+
 
 const char* crossover_log_path = "crossover_log.txt";
 
@@ -609,14 +620,14 @@ float RandomFloat(float a, float b) {
 }
 void Cinit(float* angles)
 {
-    if (!isFintessInitid)
+    if (!isFitnessInitid)
     {
         for (int i = 0; i < popSize; i++)
             fitness[i] = 1;
 
         // init random generator
         srand(time(0));
-        isFintessInitid = true;
+        isFitnessInitid = true;
     }
 
     if (mode == train_random && dummy)
@@ -632,7 +643,7 @@ void Cinit(float* angles)
     {
         for (int i = 0; i < popSize; i++)
         {
-            FILE* in = fopen("ferenc.txt", "r");
+            FILE* in = fopen("00.txt", "r");
             population[i] = genann_read(in);
             fclose(in);
         }
@@ -644,7 +655,7 @@ void Cinit(float* angles)
     {
         if (inferenceNN == NULL)
         {
-            FILE* in = fopen("ferenc.txt", "r");
+            FILE* in = fopen("gen011/01.txt", "r");
             inferenceNN = genann_read(in);
             fclose(in);
         }
@@ -684,26 +695,26 @@ void evaluate(structCarState cs)
 
     points += (int)(distDiff * multiplier);
     prevDistRaced = cs.distRaced;
+    
     //damage punishment
-    float dmgMultiplier = 1.0f;
     if (cs.damage != prevDamage) {
-        points += (int)(prevDamage - cs.damage) * dmgMultiplier;
+        points += (int)(prevDamage - cs.damage) * RewardPolicy.dmgMultiplier;
         prevDamage = cs.damage;
         //printf("\npoints from damage:\t%d", (int)((prevDamage - cs.damage) * dmgMultiplier));
     }
 
     //printf("\npoints:\t%d", points);
-    fitness[currentIndividual] += points;
-    if (fitness[currentIndividual] < 1)
-        fitness[currentIndividual] = 1;
+    fitness[GA.curIndividuum] += points;
+    if (fitness[GA.curIndividuum] < 1)
+        fitness[GA.curIndividuum] = 1;
 
 
-    if (fitness[currentIndividual] > maxFitness)
-        maxFitness = fitness[currentIndividual];
+    if (fitness[GA.curIndividuum] > GA.curMaxFitness)
+        GA.curMaxFitness = fitness[GA.curIndividuum];
 }
 
 
-void crossover()
+void reproduce()
 {
     genann* new_pop[popSize];
     int weightCnt = population[0]->total_weights;
@@ -735,19 +746,19 @@ void next()
     prevCurLapTime = -10.0f;
     meanFit = 0;
 
-    if (currentIndividual == popSize - 1)
+    if (GA.curIndividuum == popSize - 1)
     {
         bestIdx = 0;
         for (int i = 0; i < popSize; i++) {
             if (fitness[i] > fitness[bestIdx])
                 bestIdx = i;
         }
-        printf("\nNEXT CYCLE:\t%2d", currentCycle);
+        printf("\nNEXT CYCLE:\t%2d", GA.curCycle);
 
         FILE* fp;
         fp = fopen(crossover_log_path, "a");
         char gen[200];
-        sprintf(gen, "\n\n\nGeneration: %d\nBestIdx: %d\nFitness of bestIdx: %d\n", currentCycle, bestIdx, fitness[bestIdx]);
+        sprintf(gen, "\n\n\nGeneration: %d\nBestIdx: %d\nFitness of bestIdx: %d\n", GA.curCycle, bestIdx, fitness[bestIdx]);
         fputs(gen, fp);
         fputs("\nfitness values", fp);
 
@@ -768,21 +779,21 @@ void next()
         //Printing every generation
         char dir[100];
         struct stat st = { 0 };
-        sprintf(dir, "gen%03d", currentCycle);
+        sprintf(dir, "gen%03d", GA.curCycle);
         if (stat(dir, &st) == -1) {
             mkdir(dir, 0777);
         }
         for (int i = 0; i < popSize; i++)
         {
             char path[100];
-            sprintf(path, "gen%03d/%02d.txt", currentCycle, i);
+            sprintf(path, "gen%03d/%02d.txt", GA.curCycle, i);
             FILE* out = fopen(path, "w");
             genann_write(population[i], out);
             fclose(out);
         }
 
 
-        if (currentCycle == GA.cycles - 1)
+        if (GA.curCycle == GA.cycles - 1)
         {
             int idx[popSize];
             for (int i = 0; i < popSize; i++)
@@ -823,10 +834,10 @@ void next()
 
             exit(11);
         }
-        crossover();
-        currentIndividual = 0;
-        currentCycle++;
-        maxFitness = 1;
+        reproduce();
+        GA.curIndividuum = 0;
+        GA.curCycle++;
+        GA.curMaxFitness = 1;
 
         for (int i = 0; i < popSize; i++)
             fitness[i] = 1;
@@ -834,7 +845,7 @@ void next()
         return;
     }
 
-    currentIndividual++;
+    GA.curIndividuum++;
 }
 
 structCarControl CDrive(structCarState cs)
@@ -872,7 +883,7 @@ structCarControl CDrive(structCarState cs)
 
     const double* prediction;
     if (mode == train_random || mode == train_continue)
-        prediction = genann_run(population[currentIndividual], input);
+        prediction = genann_run(population[GA.curIndividuum], input);
     else
         prediction = genann_run(inferenceNN, input);
 
