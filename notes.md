@@ -13,6 +13,11 @@ tasks:
     informatív lehet.
     szóval mode-tól függetleníteni a futásközbeni
     a console ra logolást
+- ellenőrizni, hogy lap teljesítéskor kap-e 
+    nagy negatív pontot valahogy a distraced-ből
+- logolás javítás, nem csak a megjelenítés,
+    hanem a logika a kódban, mert most all over the place
+    printf ek vannak itt ott keresztül kasul
 
 
 kísérletezés:

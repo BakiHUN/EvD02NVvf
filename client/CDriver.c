@@ -491,8 +491,6 @@ void genann_write(genann const* ann, FILE* out) {
 }
 
 
-bool dummy = true;
-int meanFit = 0;
 /* Gear Changing Constants*/
 const int gearUp[6] =
 {
@@ -521,7 +519,7 @@ float clutch;
 struct Individuum
 {
     genann* nn;
-    //float fitness;
+    float fitness;
 
 };
 
@@ -549,30 +547,35 @@ static struct
 {
     float laptimeThd;
     float dmgMultiplier;
+    float onTrackMultiplier;
+    float offTrackMultiplier;
     
     
 } RewardPolicy =
 {
      .laptimeThd = 180.0f,
      .dmgMultiplier = 1.0f,
-     
+     .onTrackMultiplier = 14,
+     .offTrackMultiplier = 10     
      
     };
 
 
-#define popSize 4
+#define popSize 15
 #define inputNeuronCnt 9
 #define hiddenLayerCnt 0
 #define hiddenNeuronCnt 0
 #define outputNeuronCnt 3
 
 enum Mode { train_random, train_continue, inference };
-enum Mode mode = inference;
+enum Mode mode = train_random;
+const char* inferencePath = "";
+
 
 genann* population[popSize];
 genann* inferenceNN = NULL;
 
-int fitness[popSize];
+float fitness[popSize];
 bool isFitnessInitid = false;
 
 int stuck = 0;
@@ -586,10 +589,11 @@ int bestIdx = 0;
 float prevDamage = 0.0f;
 float prevDistRaced = 0.0f;
 
+bool dummy = true;
 
 
 
-const char* crossover_log_path = "crossover_log.txt";
+const char* logPath = "crossover_log.txt";
 
 
 /*
@@ -618,6 +622,8 @@ float RandomFloat(float a, float b) {
     float r = random * diff;
     return a + r;
 }
+
+
 void Cinit(float* angles)
 {
     if (!isFitnessInitid)
@@ -655,7 +661,7 @@ void Cinit(float* angles)
     {
         if (inferenceNN == NULL)
         {
-            FILE* in = fopen("gen011/01.txt", "r");
+            FILE* in = fopen(inferencePath, "r");
             inferenceNN = genann_read(in);
             fclose(in);
         }
@@ -679,26 +685,28 @@ void Cinit(float* angles)
 
 void evaluate(structCarState cs)
 {
-    int points = 0;
-    float distDiff = (cs.distRaced - prevDistRaced);
+    float points = 0;
+    float distCovered = cs.distRaced - prevDistRaced;
     //printf("\ndistRaced:\t%02f", cs.distRaced);
-    if ((cs.distRaced - prevDistRaced) <= 0.001f)
+    if (distCovered <= 0.001f)
         stuck++;
     else
         stuck = 0;
     //printf("\tStuck: %d", stuck);
-    //printf("\tasd: %f\n", distDiff);
+    //printf("\tasd: %f\n", distCovered);
 
-    int multiplier = 10;
+    
     if (cs.distRaced > 0.0f && cs.trackPos > -1 && cs.trackPos < 1)
-        multiplier = 14;
+        distCovered *= RewardPolicy.onTrackMultiplier;
+    else
+        distCovered *= RewardPolicy.offTrackMultiplier;
 
-    points += (int)(distDiff * multiplier);
+    points += distCovered;
     prevDistRaced = cs.distRaced;
     
     //damage punishment
     if (cs.damage != prevDamage) {
-        points += (int)(prevDamage - cs.damage) * RewardPolicy.dmgMultiplier;
+        points += (prevDamage - cs.damage) * RewardPolicy.dmgMultiplier;
         prevDamage = cs.damage;
         //printf("\npoints from damage:\t%d", (int)((prevDamage - cs.damage) * dmgMultiplier));
     }
@@ -744,7 +752,7 @@ void next()
     prevDistRaced = 0.0f;
     lapsCompleted = 0;
     prevCurLapTime = -10.0f;
-    meanFit = 0;
+    float meanFit = 0;
 
     if (GA.curIndividuum == popSize - 1)
     {
@@ -756,9 +764,9 @@ void next()
         printf("\nNEXT CYCLE:\t%2d", GA.curCycle);
 
         FILE* fp;
-        fp = fopen(crossover_log_path, "a");
+        fp = fopen(logPath, "a");
         char gen[200];
-        sprintf(gen, "\n\n\nGeneration: %d\nBestIdx: %d\nFitness of bestIdx: %d\n", GA.curCycle, bestIdx, fitness[bestIdx]);
+        sprintf(gen, "\n\n\nGeneration: %d\nBestIdx: %d\nFitness of bestIdx: %f\n", GA.curCycle, bestIdx, fitness[bestIdx]);
         fputs(gen, fp);
         fputs("\nfitness values", fp);
 
@@ -766,13 +774,13 @@ void next()
         {
             meanFit += fitness[i];
             char data[200];
-            sprintf(data, "\n%d:\tfitness:\t%d", i, fitness[i]);
+            sprintf(data, "\n%d:\tfitness:\t%f", i, fitness[i]);
             fputs(data, fp);
         }
 
         char data[200];
         meanFit /= popSize;
-        sprintf(data, "\nMean fitness:\t%d", meanFit);
+        sprintf(data, "\nMean fitness:\t%f", meanFit);
         fputs(data, fp);
         fclose(fp);
 
@@ -814,12 +822,12 @@ void next()
             }
 
             FILE* fp;
-            fp = fopen(crossover_log_path, "a");
+            fp = fopen(logPath, "a");
             fputs("\n\nidx array", fp);
             for (int i = 0; i < popSize; i++)
             {
                 char data[200];
-                sprintf(data, "\nidx[%d]:\t%d\t\tfitness:\t%d", i, idx[i], fitness[idx[i]]);
+                sprintf(data, "\nidx[%d]:\t%d\t\tfitness:\t%f", i, idx[i], fitness[idx[i]]);
                 fputs(data, fp);
             }
             fclose(fp);
