@@ -518,17 +518,41 @@ float clutch;
 
 
 // CUSTOM STUFF FROM HERE
+struct Individuum
+{
+    genann* nn;
+
+};
+
+static struct 
+{
+    int cycles;
+    float mutationChance;
+    bool popIsInitialized;
+} GA = { 
+        .cycles = 999,
+        .mutationChance = 0.3f,
+        
+        .popIsInitialized = false
+       };
+
+static struct
+{
+    float laptimeThd;
+} RewardPolicy = {
+                   .laptimeThd = 180.0f,
+
+                 };
+
+
 float prevDamage = 0.0f;
 float prevDistRaced = 0.0f;
-float laptimeThd = 180.0f;
 
-int cycles = 999;
-float mutationChance = 0.30f;
 
-#define popSize 10
+#define popSize 4
 genann* population[popSize];
 genann* inferenceNN = NULL;
-bool popIsInitialized = false;
+
 int fitness[popSize];
 int maxFitness = 1;
 bool isFintessInitid = false;
@@ -601,7 +625,7 @@ void Cinit(float* angles)
         for (int i = 0; i < popSize; i++)
             population[i] = genann_init(inputNeuronCnt, hiddenLayerCnt, hiddenNeuronCnt, outputNeuronCnt);
 
-        popIsInitialized = true;
+        GA.popIsInitialized = true;
         dummy = false;
     }
     else if (mode == train_continue && dummy)
@@ -613,7 +637,7 @@ void Cinit(float* angles)
             fclose(in);
         }
 
-        popIsInitialized = true;
+        GA.popIsInitialized = true;
         dummy = false;
     }
     else if (mode == inference)
@@ -689,7 +713,7 @@ void crossover()
         new_pop[i] = genann_copy(new_pop[0]);
         for (int j = 0; j < weightCnt; j++) {
             double mutation = RandomFloat(-0.005, 0.005);
-            if ((float)rand() / RAND_MAX < mutationChance && new_pop[i]->weight[j] + mutation > -0.5f && new_pop[i]->weight[j] + mutation < 0.5)
+            if ((float)rand() / RAND_MAX < GA.mutationChance && new_pop[i]->weight[j] + mutation > -0.5f && new_pop[i]->weight[j] + mutation < 0.5)
                 new_pop[i]->weight[j] += mutation;
         }
     }
@@ -758,7 +782,7 @@ void next()
         }
 
 
-        if (currentCycle == cycles - 1)
+        if (currentCycle == GA.cycles - 1)
         {
             int idx[popSize];
             for (int i = 0; i < popSize; i++)
@@ -789,11 +813,11 @@ void next()
             }
             fclose(fp);
 
-            if (popIsInitialized)
+            if (GA.popIsInitialized)
             {
                 for (int i = 0; i < popSize; i++)
                     genann_free(population[i]);
-                popIsInitialized = false;
+                GA.popIsInitialized = false;
 
             }
 
@@ -869,7 +893,7 @@ structCarControl CDrive(structCarState cs)
     if (mode == train_random || mode == train_continue)
     {
         evaluate(cs);
-        if (cs.curLapTime > laptimeThd || stuck > maxStuck || lapsCompleted > 2)
+        if (cs.curLapTime > RewardPolicy.laptimeThd || stuck > maxStuck || lapsCompleted > 2)
         {
             meta = 1;
             next();
