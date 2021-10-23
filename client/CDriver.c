@@ -550,10 +550,10 @@ int bestIdx = 0;
 #define hiddenNeuronCnt 0
 #define outputNeuronCnt 3
 
-// 0: random
-// 1: prev
-// 2: inference
-int mode = 2;
+
+enum Mode {train_random, train_continue, inference};
+enum Mode mode = train_random;
+
 const char* crossover_log_path = "crossover_log.txt";
 
 
@@ -564,7 +564,7 @@ const char* crossover_log_path = "crossover_log.txt";
         divide by 10?
         reason to do so: after a certain speed
         the network becomes blind to any change
-        ha 45 felett minden 1 lesz a sigmoid ut�n
+        ha 45 felett minden 1 lesz a sigmoid utan
         akkor nem fog ertesulni arrol hogy 100 megy vagy 50 nel
 
     - kivalasztani az inputokat
@@ -595,7 +595,7 @@ void Cinit(float* angles)
         isFintessInitid = true;
     }
 
-    if (mode == 0 && dummy) // start from random
+    if (mode == train_random && dummy)
     {
         //printf("\n\nASDASDASDASDASDASDAS\n\n");
         for (int i = 0; i < popSize; i++)
@@ -604,7 +604,7 @@ void Cinit(float* angles)
         popIsInitialized = true;
         dummy = false;
     }
-    else if (mode == 1 && dummy) // start from file
+    else if (mode == train_continue && dummy)
     {
         for (int i = 0; i < popSize; i++)
         {
@@ -616,7 +616,7 @@ void Cinit(float* angles)
         popIsInitialized = true;
         dummy = false;
     }
-    else if (mode == 2) //inference
+    else if (mode == inference)
     {
         if (inferenceNN == NULL)
         {
@@ -847,7 +847,7 @@ structCarControl CDrive(structCarState cs)
 
 
     const double* prediction;
-    if (mode == 0 || mode == 1)
+    if (mode == train_random || mode == train_continue)
         prediction = genann_run(population[currentIndividual], input);
     else
         prediction = genann_run(inferenceNN, input);
@@ -866,7 +866,7 @@ structCarControl CDrive(structCarState cs)
     else
         accel = 0;
 
-    if (mode == 0 || mode == 1)
+    if (mode == train_random || mode == train_continue)
     {
         evaluate(cs);
         if (cs.curLapTime > laptimeThd || stuck > maxStuck || lapsCompleted > 2)
