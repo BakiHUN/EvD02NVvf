@@ -18,6 +18,12 @@ tasks:
 - logolás javítás, nem csak a megjelenítés,
     hanem a logika a kódban, mert most all over the place
     printf ek vannak itt ott keresztül kasul
+- megnézni a warning okat visual studio ban amikor elindul
+    a projekt
+- a hálókat úgy menteni, hogy a legjobb legelol legyen?
+- ellenőrizni, hogy Crestart vagy Cinit során kap-e pontokat a háló
+    szóval van-e olyan állapot, amikor az eveluate fut, pedig még
+    nem kéne, és közbe a cs.distRaced is faszságot ad vissza
 
 
 kísérletezés:

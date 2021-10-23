@@ -568,8 +568,8 @@ static struct
 #define outputNeuronCnt 3
 
 enum Mode { train_random, train_continue, inference };
-enum Mode mode = train_random;
-const char* inferencePath = "";
+enum Mode mode = inference;
+const char* inferencePath = "gen010/01.txt";
 
 
 genann* population[popSize];
@@ -591,27 +591,7 @@ float prevDistRaced = 0.0f;
 
 bool dummy = true;
 
-
-
 const char* logPath = "crossover_log.txt";
-
-
-/*
-    todo:
-    - maybe use same magnitude between input data
-        e. g. distance sensor gives back 200
-        divide by 10?
-        reason to do so: after a certain speed
-        the network becomes blind to any change
-        ha 45 felett minden 1 lesz a sigmoid utan
-        akkor nem fog ertesulni arrol hogy 100 megy vagy 50 nel
-
-    - kivalasztani az inputokat
-    - reward policy kitalalasa
-    - feltetel hogy lealljon az egyed probalkozasa
-    // possible addition to input:
-    // z, trackpos
-*/
 
 
 
@@ -961,7 +941,6 @@ int getGear(structCarState* cs)
         else // otherwhise keep current gear
             return gear;
 }
-
 
 void clutching(structCarState* cs, float* clutch)
 {
