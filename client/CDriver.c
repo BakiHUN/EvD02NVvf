@@ -553,22 +553,22 @@ static struct
     
 } RewardPolicy =
 {
-     .laptimeThd = 180.0f,
+     .laptimeThd = 30.0f,
      .dmgMultiplier = 1.0f,
-     .onTrackMultiplier = 14,
-     .offTrackMultiplier = 10     
+     .onTrackMultiplier = 7,
+     .offTrackMultiplier = 5     
      
     };
 
 
-#define popSize 15
+#define popSize 20
 #define inputNeuronCnt 9
 #define hiddenLayerCnt 0
 #define hiddenNeuronCnt 0
 #define outputNeuronCnt 3
 
 enum Mode { train_random, train_continue, inference };
-enum Mode mode = inference;
+enum Mode mode = train_random;
 const char* inferencePath = "gen010/01.txt";
 
 
@@ -589,7 +589,6 @@ int bestIdx = 0;
 float prevDamage = 0.0f;
 float prevDistRaced = 0.0f;
 
-bool dummy = true;
 
 const char* logPath = "crossover_log.txt";
 
@@ -616,16 +615,15 @@ void Cinit(float* angles)
         isFitnessInitid = true;
     }
 
-    if (mode == train_random && dummy)
+    if (mode == train_random && !GA.popIsInitialized)
     {
         //printf("\n\nASDASDASDASDASDASDAS\n\n");
         for (int i = 0; i < popSize; i++)
             population[i] = genann_init(inputNeuronCnt, hiddenLayerCnt, hiddenNeuronCnt, outputNeuronCnt);
 
         GA.popIsInitialized = true;
-        dummy = false;
     }
-    else if (mode == train_continue && dummy)
+    else if (mode == train_continue && !GA.popIsInitialized)
     {
         for (int i = 0; i < popSize; i++)
         {
@@ -635,7 +633,6 @@ void Cinit(float* angles)
         }
 
         GA.popIsInitialized = true;
-        dummy = false;
     }
     else if (mode == inference)
     {
@@ -672,7 +669,7 @@ void evaluate(structCarState cs)
         stuck++;
     else
         stuck = 0;
-    //printf("\tStuck: %d", stuck);
+    //printf("\tStuck: %f", stuck);
     //printf("\tasd: %f\n", distCovered);
 
     
@@ -834,6 +831,7 @@ void next()
     }
 
     GA.curIndividuum++;
+    fitness[GA.curIndividuum] = 1;
 }
 
 structCarControl CDrive(structCarState cs)
@@ -849,7 +847,7 @@ structCarControl CDrive(structCarState cs)
 
     clutching(&cs, &clutch);
     int gear = getGear(&cs);
-    int meta = 2;
+    int meta = 0;
 
 
     //https://towardsdatascience.com/17-rules-of-thumb-for-building-a-neural-network-93356f9930af
@@ -892,10 +890,13 @@ structCarControl CDrive(structCarState cs)
     if (mode == train_random || mode == train_continue)
     {
         evaluate(cs);
+        printf("\nEVAL ENDED\N");
         if (cs.curLapTime > RewardPolicy.laptimeThd || stuck > maxStuck || lapsCompleted > 2)
         {
             meta = 1;
+            printf("\nRESTARTING RACE\n");
             next();
+            printf("\nNEXT ENDED\n");
             stuck = 0;
         }
     }
