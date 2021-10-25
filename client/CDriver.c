@@ -650,23 +650,17 @@ static struct
 
 enum Mode { train_random, train_continue, inference };
 enum Mode mode = inference;
-const char* inferencePath = "00.txt";
-
 
 genann* population[popSize];
 genann* inferenceNN = NULL;
-
 float fitness[popSize];
 bool isFitnessInitid = false;
 
 int stuck = 0;
 int maxStuck = 300;
-
 float prevCurLapTime = -10.0f;
 int lapsCompleted = 0;
-
 int bestIdx = 0;
-
 float prevDamage = 0.0f;
 float prevDistRaced = 0.0f;
 
