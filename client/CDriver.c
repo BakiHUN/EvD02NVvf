@@ -513,7 +513,7 @@ const float clutchMaxTime = 1.5;
 
 int stuck;
 float clutch;
-
+bool busy=false;
 
 // CUSTOM STUFF FROM HERE
 struct Individuum
@@ -561,7 +561,7 @@ static struct
     };
 
 
-#define popSize 20
+#define popSize 10
 #define inputNeuronCnt 9
 #define hiddenLayerCnt 0
 #define hiddenNeuronCnt 0
@@ -569,7 +569,7 @@ static struct
 
 enum Mode { train_random, train_continue, inference };
 enum Mode mode = train_random;
-const char* inferencePath = "gen010/01.txt";
+const char* inferencePath = "00.txt";
 
 
 genann* population[popSize];
@@ -617,7 +617,6 @@ void Cinit(float* angles)
 
     if (mode == train_random && !GA.popIsInitialized)
     {
-        //printf("\n\nASDASDASDASDASDASDAS\n\n");
         for (int i = 0; i < popSize; i++)
             population[i] = genann_init(inputNeuronCnt, hiddenLayerCnt, hiddenNeuronCnt, outputNeuronCnt);
 
@@ -663,17 +662,13 @@ void Cinit(float* angles)
 void evaluate(structCarState cs)
 {
     float points = 0;
-    float distCovered = cs.distRaced - prevDistRaced;
-    //printf("\ndistRaced:\t%02f", cs.distRaced);
+    float distCovered = (cs.distRaced - prevDistRaced);
     if (distCovered <= 0.001f)
         stuck++;
     else
         stuck = 0;
-    //printf("\tStuck: %f", stuck);
-    //printf("\tasd: %f\n", distCovered);
-
     
-    if (cs.distRaced > 0.0f && cs.trackPos > -1 && cs.trackPos < 1)
+    if (distCovered > 0.0f && cs.trackPos > -1 && cs.trackPos < 1)
         distCovered *= RewardPolicy.onTrackMultiplier;
     else
         distCovered *= RewardPolicy.offTrackMultiplier;
@@ -685,11 +680,10 @@ void evaluate(structCarState cs)
     if (cs.damage != prevDamage) {
         points += (prevDamage - cs.damage) * RewardPolicy.dmgMultiplier;
         prevDamage = cs.damage;
-        //printf("\npoints from damage:\t%d", (int)((prevDamage - cs.damage) * dmgMultiplier));
     }
 
-    if (cs.curLapTime >= 0.0f) {
-        //printf("\npoints:\t%d", points);
+
+   if (cs.curLapTime >= 0.0f) {
         fitness[GA.curIndividuum] += points;
         if (fitness[GA.curIndividuum] < 1)
             fitness[GA.curIndividuum] = 1;
@@ -697,20 +691,9 @@ void evaluate(structCarState cs)
 
         if (fitness[GA.curIndividuum] > GA.curMaxFitness)
             GA.curMaxFitness = fitness[GA.curIndividuum];
-
-
-        //printf("\nPoints[%d,%d]: %f", GA.curCycle, GA.curIndividuum, fitness[GA.curIndividuum]);
     }
-    else {
-        fitness[GA.curIndividuum - 1] += points;
-        if (fitness[GA.curIndividuum - 1] < 1)
-            fitness[GA.curIndividuum - 1] = 1;
-
-
-        if (fitness[GA.curIndividuum - 1] > GA.curMaxFitness)
-            GA.curMaxFitness = fitness[GA.curIndividuum];
+   else
         fitness[GA.curIndividuum] = 1.0f;
-    }
 }
 
 
@@ -738,8 +721,71 @@ void reproduce()
 }
 
 
-void next()
+structCarControl CDrive(structCarState cs)
 {
+    printf("\nDistance raced[%d,%d]: %f", GA.curCycle, GA.curIndividuum, cs.distRaced);
+
+    if (cs.curLapTime < prevCurLapTime)
+        lapsCompleted++;
+    prevCurLapTime = cs.curLapTime;
+
+
+    clutching(&cs, &clutch);
+    int gear = getGear(&cs);
+    int meta = 0;
+
+    //https://towardsdatascience.com/17-rules-of-thumb-for-building-a-neural-network-93356f9930af
+    double input[inputNeuronCnt];
+    input[0] = (double)cs.track[1] / 4;
+    input[1] = (double)cs.track[5] / 4;
+    input[2] = (double)cs.track[9] / 4;
+    input[3] = (double)cs.track[13] / 4;
+    input[4] = (double)cs.track[17] / 4;
+    input[5] = (double)cs.angle * 10; // cs.angle [-3,14, +3,14] in radian
+    input[6] = (double)cs.trackPos * 10;
+    input[7] = (double)cs.speedX / 5;
+    input[8] = (double)cs.speedY;
+
+    const double* prediction;
+    if (mode == train_random || mode == train_continue)
+        prediction = genann_run(population[GA.curIndividuum], input);
+    else
+        prediction = genann_run(inferenceNN, input);
+
+    double accel = prediction[0];
+    double brake = prediction[1];
+    double steer = prediction[2] * 2 - 1;
+
+    if (accel > brake)
+        brake = 0;
+    else
+        accel = 0;
+
+    if (mode == train_random || mode == train_continue)
+    {
+        evaluate(cs);
+        if (cs.curLapTime > RewardPolicy.laptimeThd || stuck > maxStuck || lapsCompleted > 2)
+        {
+            meta = 1;
+        }
+    }
+
+    structCarControl cc = { accel, brake, gear, steer, clutch, meta };
+    return cc;
+}
+
+
+void ConShutdown()
+{
+    printf("Bye bye!");
+}
+
+void ConRestart()
+{
+    stuck = 0;
+    prevDistRaced = 0.0f;
+    prevDamage = 0.0f;
+    busy = true;
     prevDamage = 0.0f;
     prevDistRaced = 0.0f;
     lapsCompleted = 0;
@@ -795,43 +841,6 @@ void next()
 
         if (GA.curCycle == GA.cycles - 1)
         {
-            int idx[popSize];
-            for (int i = 0; i < popSize; i++)
-                idx[i] = i;
-
-            // sort fitness in descending order
-            for (int i = 0; i < popSize - 1; i++)
-            {
-                for (int j = i + 1; j < popSize; j++)
-                {
-                    if (fitness[idx[j]] > fitness[idx[i]])
-                    {
-                        int temp = idx[i];
-                        idx[i] = idx[j];
-                        idx[j] = temp;
-                    }
-                }
-            }
-
-            FILE* fp;
-            fp = fopen(logPath, "a");
-            fputs("\n\nidx array", fp);
-            for (int i = 0; i < popSize; i++)
-            {
-                char data[200];
-                sprintf(data, "\nidx[%d]:\t%d\t\tfitness:\t%f", i, idx[i], fitness[idx[i]]);
-                fputs(data, fp);
-            }
-            fclose(fp);
-
-            if (GA.popIsInitialized)
-            {
-                for (int i = 0; i < popSize; i++)
-                    genann_free(population[i]);
-                GA.popIsInitialized = false;
-
-            }
-
             exit(11);
         }
         reproduce();
@@ -841,94 +850,13 @@ void next()
 
         for (int i = 0; i < popSize; i++)
             fitness[i] = 1;
-
+        busy = false;
         return;
     }
 
     GA.curIndividuum++;
     fitness[GA.curIndividuum] = 1;
-}
-
-structCarControl CDrive(structCarState cs)
-{
-    //printf("\n%f", cs.distFromStart);
-    //printf("\n%f", cs.curLapTime);
-
-    if (cs.curLapTime < prevCurLapTime)
-        lapsCompleted++;
-    prevCurLapTime = cs.curLapTime;
-    //printf("\n%d", lapsCompleted);
-
-
-    clutching(&cs, &clutch);
-    int gear = getGear(&cs);
-    int meta = 0;
-
-
-    //https://towardsdatascience.com/17-rules-of-thumb-for-building-a-neural-network-93356f9930af
-    double input[inputNeuronCnt];
-    input[0] = (double)cs.track[1] / 4;
-    input[1] = (double)cs.track[5] / 4;
-    input[2] = (double)cs.track[9] / 4;
-    input[3] = (double)cs.track[13] / 4;
-    input[4] = (double)cs.track[17] / 4;
-    input[5] = (double)cs.angle * 10; // cs.angle [-3,14, +3,14] in radian
-    input[6] = (double)cs.trackPos * 10;
-    input[7] = (double)cs.speedX / 5;
-    input[8] = (double)cs.speedY;
-
-    //printf("\n\ninputs:");
-    //for (int i = 0; i < inputNeuronCnt; i++)
-    //    printf("\ninput_%02d:\t%f", i, input[i]);
-
-
-    const double* prediction;
-    if (mode == train_random || mode == train_continue)
-        prediction = genann_run(population[GA.curIndividuum], input);
-    else
-        prediction = genann_run(inferenceNN, input);
-
-    double accel = prediction[0];
-    double brake = prediction[1];
-    double steer = prediction[2] * 2 - 1;
-
-    //printf("\n\outputs:");
-    //printf("\naccel:\t%f", accel);
-    //printf("\nbrake:\t%f", brake);
-    //printf("\nsteer:\t%f", steer);
-
-    if (accel > brake)
-        brake = 0;
-    else
-        accel = 0;
-
-    if (mode == train_random || mode == train_continue)
-    {
-        evaluate(cs);
-        if (cs.curLapTime > RewardPolicy.laptimeThd || stuck > maxStuck || lapsCompleted > 2)
-        {
-            meta = 1;
-            next();
-            stuck = 0;
-        }
-    }
-
-    //printf("\n gen: %d fitness %02d:\t%d", currentCycle, currentIndividual, fitness[currentIndividual]);
-    //printf("\nlongitudnal speed:\t%f", input[7]);
-    structCarControl cc = { accel, brake, gear, steer, clutch, meta };
-    return cc;
-}
-
-
-void ConShutdown()
-{
-    printf("Bye bye!");
-}
-
-void ConRestart()
-{
-    prevDistRaced = 0.0f;
-    prevDamage = 0.0f;
+    busy = false;
     printf("Restarting the race!");
 }
 
