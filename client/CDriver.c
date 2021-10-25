@@ -535,7 +535,7 @@ static struct
 } GA = 
     { 
      .cycles = 999,
-     .mutationChance = 0.3f,
+     .mutationChance = 0.55f,
      .popIsInitialized = false,
      .curMaxFitness = 1,
      .curIndividuum = 0,
@@ -688,14 +688,29 @@ void evaluate(structCarState cs)
         //printf("\npoints from damage:\t%d", (int)((prevDamage - cs.damage) * dmgMultiplier));
     }
 
-    //printf("\npoints:\t%d", points);
-    fitness[GA.curIndividuum] += points;
-    if (fitness[GA.curIndividuum] < 1)
-        fitness[GA.curIndividuum] = 1;
+    if (cs.curLapTime >= 0.0f) {
+        //printf("\npoints:\t%d", points);
+        fitness[GA.curIndividuum] += points;
+        if (fitness[GA.curIndividuum] < 1)
+            fitness[GA.curIndividuum] = 1;
 
 
-    if (fitness[GA.curIndividuum] > GA.curMaxFitness)
-        GA.curMaxFitness = fitness[GA.curIndividuum];
+        if (fitness[GA.curIndividuum] > GA.curMaxFitness)
+            GA.curMaxFitness = fitness[GA.curIndividuum];
+
+
+        //printf("\nPoints[%d,%d]: %f", GA.curCycle, GA.curIndividuum, fitness[GA.curIndividuum]);
+    }
+    else {
+        fitness[GA.curIndividuum - 1] += points;
+        if (fitness[GA.curIndividuum - 1] < 1)
+            fitness[GA.curIndividuum - 1] = 1;
+
+
+        if (fitness[GA.curIndividuum - 1] > GA.curMaxFitness)
+            GA.curMaxFitness = fitness[GA.curIndividuum];
+        fitness[GA.curIndividuum] = 1.0f;
+    }
 }
 
 
@@ -890,13 +905,10 @@ structCarControl CDrive(structCarState cs)
     if (mode == train_random || mode == train_continue)
     {
         evaluate(cs);
-        printf("\nEVAL ENDED\N");
         if (cs.curLapTime > RewardPolicy.laptimeThd || stuck > maxStuck || lapsCompleted > 2)
         {
             meta = 1;
-            printf("\nRESTARTING RACE\n");
             next();
-            printf("\nNEXT ENDED\n");
             stuck = 0;
         }
     }
