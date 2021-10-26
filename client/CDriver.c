@@ -514,101 +514,16 @@ const float clutchMaxTime = 1.5;
 int stuck;
 float clutch;
 
-
-double weights[] = {
-    4.77700130007830181533e-01,
--2.49641383844358299982e-01,
--4.81333352497638977674e-01,
-3.50349437239224736906e-01,
-1.33590195916458265302e-01,
-2.74579606845346879673e-01,
-1.92779320042198221152e-01,
-9.23184935921227411981e-02,
-3.11713008027248994480e-01,
-1.61122460420544122428e-02,
--4.35953851645360990208e-01,
-4.51162756377782248052e-01,
-4.19121380697157208672e-01,
--1.98480177402635515893e-01,
--3.03181554935741837120e-01,
--7.31757297429432851388e-02,
--1.07344279658395769239e-01,
-1.97512745712169923706e-01,
-1.25533316848208342797e-01,
--2.17494738996031167222e-01,
-2.98989932065722996413e-02,
-4.88418243790873729537e-01,
--4.96526986252032509483e-01,
-1.22371590432144183858e-01,
--3.35627306058421226442e-01,
-4.39335305182337765295e-01,
--1.99311798048983690457e-01,
-2.67345203723229007942e-01,
--3.13933215906157025987e-01,
--1.30602420952120934494e-01,
-4.50157169093069686738e-01,
-2.38785983788198374889e-01,
--4.33065268114799450938e-01,
-4.34905542973722858413e-01,
--3.05880918009189317619e-01,
-7.76390940976202648116e-02,
--4.41012296685524052275e-01,
-1.30516981317713942623e-01,
-3.91579944377602906513e-01,
--4.57490758006570241712e-01,
--2.99768090597932745922e-02,
-1.70570998187222211406e-01,
-1.10730318946100303457e-01,
-1.62746062942644376115e-01,
--4.13664663180894898176e-01,
--4.60022276229948345883e-01,
-2.45132313866173845440e-01,
--3.88383134224709269944e-01,
-3.16599117310650268742e-02,
-3.06103696848247897044e-01,
-7.07144434298206392420e-02,
-1.91387664362986931188e-01,
--5.66316662316977414982e-02,
-2.75731689928809364787e-01,
--9.95498415791324919866e-02,
--2.18344560405129839431e-02,
--3.88216797985614259225e-01,
-2.22962127838167933902e-01,
-4.41851552575826644897e-01,
-3.44442576089872831702e-01,
--1.66957608217239150683e-01,
-7.35816514336598004320e-02,
-1.28211318994474243738e-01,
-3.74538401925373132251e-01,
--2.06106728827392116088e-02,
--2.06511132285125298402e-01,
--2.98858619153544613489e-01,
--1.76567886572416565816e-01,
--4.47523432685696165301e-01,
--3.96501046486061770047e-01,
-3.33303338551351080454e-01,
-3.57596059202332505755e-01,
--3.72627951042711236251e-01,
--4.21030295051564529274e-01,
--1.26648771102636947816e-01,
--3.66837059003013443714e-01,
-3.17981513958068173764e-01,
--3.41399879002972084230e-01,
--4.26644182511118075229e-01,
-4.82030706306256107041e-01,
-3.87981874752820754537e-02
-};
-bool busy = false;
-
 // CUSTOM STUFF FROM HERE
 struct Individuum
 {
     genann* nn;
     float fitness;
+
 };
 
 
-static struct 
+static struct
 {
     int cycles;
     float mutationChance;
@@ -616,15 +531,15 @@ static struct
     int curMaxFitness;
     int curIndividuum;
     int curCycle;
-} GA = 
-    { 
-     .cycles = 999,
-     .mutationChance = 0.55f,
-     .popIsInitialized = false,
-     .curMaxFitness = 1,
-     .curIndividuum = 0,
-     .curCycle = 0
-    };
+} GA =
+{
+    .cycles = 999,
+    .mutationChance = 0.65f,
+    .popIsInitialized = false,
+    .curMaxFitness = 1,
+    .curIndividuum = 0,
+    .curCycle = 0
+};
 
 
 static struct
@@ -633,34 +548,43 @@ static struct
     float dmgMultiplier;
     float onTrackMultiplier;
     float offTrackMultiplier;
+
+
 } RewardPolicy =
 {
-     .laptimeThd = 30.0f,
+     .laptimeThd = 180.0f,
      .dmgMultiplier = 1.0f,
      .onTrackMultiplier = 7,
-     .offTrackMultiplier = 5     
-    };
+     .offTrackMultiplier = 5
+
+};
 
 
 #define popSize 10
-#define inputNeuronCnt 9
-#define hiddenLayerCnt 0
-#define hiddenNeuronCnt 0
+#define inputNeuronCnt 14
+#define hiddenLayerCnt 1
+#define hiddenNeuronCnt 8
 #define outputNeuronCnt 3
 
 enum Mode { train_random, train_continue, inference };
-enum Mode mode = inference;
+enum Mode mode = train_random;
+const char* inferencePath = "00.txt";
+
 
 genann* population[popSize];
 genann* inferenceNN = NULL;
+
 float fitness[popSize];
 bool isFitnessInitid = false;
 
 int stuck = 0;
 int maxStuck = 300;
+
 float prevCurLapTime = -10.0f;
 int lapsCompleted = 0;
+
 int bestIdx = 0;
+
 float prevDamage = 0.0f;
 float prevDistRaced = 0.0f;
 
@@ -711,9 +635,9 @@ void Cinit(float* angles)
     {
         if (inferenceNN == NULL)
         {
-            inferenceNN = genann_init(9, 1, 6, 3);
-            for (int i = 0; i < sizeof(weights) / sizeof(weights[0]); i++)
-                inferenceNN->weight[i] = weights[i];
+            FILE* in = fopen(inferencePath, "r");
+            inferenceNN = genann_read(in);
+            fclose(in);
         }
     }
 
@@ -741,7 +665,7 @@ void evaluate(structCarState cs)
         stuck++;
     else
         stuck = 0;
-    
+
     if (distCovered > 0.0f && cs.trackPos > -1 && cs.trackPos < 1)
         distCovered *= RewardPolicy.onTrackMultiplier;
     else
@@ -749,15 +673,14 @@ void evaluate(structCarState cs)
 
     points += distCovered;
     prevDistRaced = cs.distRaced;
-    
+
     //damage punishment
     if (cs.damage != prevDamage) {
         points += (prevDamage - cs.damage) * RewardPolicy.dmgMultiplier;
         prevDamage = cs.damage;
     }
 
-
-   if (cs.curLapTime >= 0.0f) {
+    if (cs.curLapTime >= 0.0f) {
         fitness[GA.curIndividuum] += points;
         if (fitness[GA.curIndividuum] < 1)
             fitness[GA.curIndividuum] = 1;
@@ -766,7 +689,7 @@ void evaluate(structCarState cs)
         if (fitness[GA.curIndividuum] > GA.curMaxFitness)
             GA.curMaxFitness = fitness[GA.curIndividuum];
     }
-   else
+    else if (cs.curLapTime > -0.1)
         fitness[GA.curIndividuum] = 1.0f;
 }
 
@@ -780,8 +703,8 @@ void reproduce()
     {
         new_pop[i] = genann_copy(new_pop[0]);
         for (int j = 0; j < weightCnt; j++) {
-            double mutation = RandomFloat(-0.005, 0.005);
-            if ((float)rand() / RAND_MAX < GA.mutationChance && new_pop[i]->weight[j] + mutation > -0.5f && new_pop[i]->weight[j] + mutation < 0.5)
+            double mutation = RandomFloat(-0.025, 0.025);
+            if ((float)rand() / RAND_MAX <= GA.mutationChance && new_pop[i]->weight[j] + mutation > -0.5f && new_pop[i]->weight[j] + mutation < 0.5)
                 new_pop[i]->weight[j] += mutation;
         }
     }
@@ -793,10 +716,31 @@ void reproduce()
         genann_free(new_pop[i]);
     }
 }
+float smallest(int from, int to, float opponents[]) {
+    float small = opponents[from];
+    for (int i = from + 1; i <= to; i++) {
+        if (small > opponents[i])
+            small = opponents[i];
+    }
+    return small;
+}
+float* opponentProximity(float opponents[]) {
+    float closest[5];
+    closest[0] = smallest(4, 11, opponents);
+    closest[1] = smallest(12, 17, opponents);
+    closest[2] = smallest(18, 23, opponents);
+    closest[3] = smallest(24, 31, opponents);
+    float rearRight = smallest(32, 35, opponents);
+    float rearLeft = smallest(0, 3, opponents);
+    closest[4] = (rearRight > rearLeft) ? rearLeft : rearRight;
+    return closest;
 
+}
 
 structCarControl CDrive(structCarState cs)
 {
+    //printf("\nDistance raced[%d,%d]: %f", GA.curCycle, GA.curIndividuum, cs.distRaced);
+
     if (cs.curLapTime < prevCurLapTime)
         lapsCompleted++;
     prevCurLapTime = cs.curLapTime;
@@ -805,18 +749,26 @@ structCarControl CDrive(structCarState cs)
     clutching(&cs, &clutch);
     int gear = getGear(&cs);
     int meta = 0;
+    float* closest = opponentProximity(cs.opponents);
+
 
     //https://towardsdatascience.com/17-rules-of-thumb-for-building-a-neural-network-93356f9930af
     double input[inputNeuronCnt];
-    input[0] = (double)cs.track[1] / 4;
-    input[1] = (double)cs.track[5] / 4;
-    input[2] = (double)cs.track[9] / 4;
-    input[3] = (double)cs.track[13] / 4;
-    input[4] = (double)cs.track[17] / 4;
-    input[5] = (double)cs.angle * 10; // cs.angle [-3,14, +3,14] in radian
-    input[6] = (double)cs.trackPos * 10;
-    input[7] = (double)cs.speedX / 5;
-    input[8] = (double)cs.speedY;
+    input[0] = (double)cs.track[1] / 5;
+    input[1] = (double)cs.track[5] / 5;
+    input[2] = (double)cs.track[9] / 5;
+    input[3] = (double)cs.track[13] / 5;
+    input[4] = (double)cs.track[17] / 5;
+    input[5] = (double)closest[0] / 5;
+    input[6] = (double)closest[1] / 5;
+    input[7] = (double)closest[2] / 5;
+    input[8] = (double)closest[3] / 5;
+    input[9] = (double)closest[4] / 5;
+    input[10] = (double)cs.angle * 10; // c2s.angle [-3,14, +3,14] in radian
+    input[11] = (double)cs.trackPos * 10;
+    input[12] = (double)cs.speedX / 6;
+    input[13] = (double)cs.speedY / 2;
+
 
     const double* prediction;
     if (mode == train_random || mode == train_continue)
@@ -857,7 +809,6 @@ void ConRestart()
     stuck = 0;
     prevDistRaced = 0.0f;
     prevDamage = 0.0f;
-    busy = true;
     prevDamage = 0.0f;
     prevDistRaced = 0.0f;
     lapsCompleted = 0;
@@ -913,7 +864,7 @@ void ConRestart()
 
         if (GA.curCycle == GA.cycles - 1)
         {
-            exit(11);
+            exit(420);
         }
         reproduce();
         GA.curIndividuum = 0;
@@ -922,13 +873,11 @@ void ConRestart()
 
         for (int i = 0; i < popSize; i++)
             fitness[i] = 1;
-        busy = false;
         return;
     }
 
     GA.curIndividuum++;
     fitness[GA.curIndividuum] = 1;
-    busy = false;
     printf("Restarting the race!");
 }
 
