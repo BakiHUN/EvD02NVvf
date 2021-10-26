@@ -686,7 +686,7 @@ void evaluate(structCarState cs)
         if (fitness[GA.curIndividuum] > GA.curMaxFitness)
             GA.curMaxFitness = fitness[GA.curIndividuum];
     }
-    else if (cs.curLapTime > -0.1)
+    else
         fitness[GA.curIndividuum] = 1.0f;
 }
 
@@ -708,9 +708,9 @@ void reproduce()
 
     for (int i = 0; i < popSize; i++)
     {
-        genann_free(population[i]);
-        population[i] = genann_copy(new_pop[i]);
-        genann_free(new_pop[i]);
+        inferenceNN = genann_init(9, 1, 6, 3);
+        for (int i = 0; i < sizeof(weights) / sizeof(weights[0]); i++)
+            inferenceNN->weight[i] = weights[i];
     }
 }
 
@@ -750,12 +750,10 @@ structCarControl CDrive(structCarState cs)
         lapsCompleted++;
     prevCurLapTime = cs.curLapTime;
 
-
     clutching(&cs, &clutch);
     int gear = getGear(&cs);
     int meta = 0;
     float* closest = opponentProximity(cs.opponents);
-
 
     //https://towardsdatascience.com/17-rules-of-thumb-for-building-a-neural-network-93356f9930af
     double input[inputNeuronCnt];
@@ -764,11 +762,11 @@ structCarControl CDrive(structCarState cs)
     input[2] = (double)cs.track[9] / 5;
     input[3] = (double)cs.track[13] / 5;
     input[4] = (double)cs.track[17] / 5;
-    input[5] = (double)closest[0] / 5;
-    input[6] = (double)closest[1] / 5;
-    input[7] = (double)closest[2] / 5;
-    input[8] = (double)closest[3] / 5;
-    input[9] = (double)closest[4] / 5;
+    input[5] = (double)closest[0];
+    input[6] = (double)closest[1];
+    input[7] = (double)closest[2];
+    input[8] = (double)closest[3];
+    input[9] = (double)closest[4];
     input[10] = (double)cs.angle * 10; // c2s.angle [-3,14, +3,14] in radian
     input[11] = (double)cs.trackPos * 10;
     input[12] = (double)cs.speedX / 6;
@@ -794,9 +792,7 @@ structCarControl CDrive(structCarState cs)
     {
         evaluate(cs);
         if (cs.curLapTime > RewardPolicy.laptimeThd || stuck > maxStuck || lapsCompleted > 2)
-        {
             meta = 1;
-        }
     }
 
     structCarControl cc = { accel, brake, gear, steer, clutch, meta };
