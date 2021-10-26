@@ -225,7 +225,7 @@ genann* genann_init(int inputs, int hidden_layers, int hidden, int outputs) {
 
     genann_randomize(ret);
 
-    ret->activation_hidden = genann_act_sigmoid_cached;
+    ret->activation_hidden = genann_act_linear;
     ret->activation_output = genann_act_sigmoid_cached;
 
     genann_init_sigmoid_lookup(ret);
@@ -531,15 +531,15 @@ static struct
     int curMaxFitness;
     int curIndividuum;
     int curCycle;
-} GA =
-{
-    .cycles = 999,
-    .mutationChance = 0.65f,
-    .popIsInitialized = false,
-    .curMaxFitness = 1,
-    .curIndividuum = 0,
-    .curCycle = 0
-};
+} GA = 
+    { 
+     .cycles = 999,
+     .mutationChance = 0.50f,
+     .popIsInitialized = false,
+     .curMaxFitness = 1,
+     .curIndividuum = 0,
+     .curCycle = 0
+    };
 
 
 static struct
@@ -554,13 +554,12 @@ static struct
 {
      .laptimeThd = 180.0f,
      .dmgMultiplier = 1.0f,
-     .onTrackMultiplier = 7,
-     .offTrackMultiplier = 5
+     .onTrackMultiplier = 2,
+     .offTrackMultiplier = 1     
+    };
 
-};
 
-
-#define popSize 10
+#define popSize 30
 #define inputNeuronCnt 14
 #define hiddenLayerCnt 1
 #define hiddenNeuronCnt 8
@@ -568,8 +567,6 @@ static struct
 
 enum Mode { train_random, train_continue, inference };
 enum Mode mode = train_random;
-const char* inferencePath = "00.txt";
-
 
 genann* population[popSize];
 genann* inferenceNN = NULL;
@@ -703,8 +700,8 @@ void reproduce()
     {
         new_pop[i] = genann_copy(new_pop[0]);
         for (int j = 0; j < weightCnt; j++) {
-            double mutation = RandomFloat(-0.025, 0.025);
-            if ((float)rand() / RAND_MAX <= GA.mutationChance && new_pop[i]->weight[j] + mutation > -0.5f && new_pop[i]->weight[j] + mutation < 0.5)
+            double mutation = RandomFloat(-0.05, 0.05);
+            if ((float)rand() / RAND_MAX < GA.mutationChance && new_pop[i]->weight[j] + mutation > -0.5f && new_pop[i]->weight[j] + mutation < 0.5)
                 new_pop[i]->weight[j] += mutation;
         }
     }
@@ -716,7 +713,10 @@ void reproduce()
         genann_free(new_pop[i]);
     }
 }
-float smallest(int from, int to, float opponents[]) {
+
+
+float smallest(int from, int to, float opponents[]) 
+{
     float small = opponents[from];
     for (int i = from + 1; i <= to; i++) {
         if (small > opponents[i])
@@ -724,15 +724,20 @@ float smallest(int from, int to, float opponents[]) {
     }
     return small;
 }
-float* opponentProximity(float opponents[]) {
+
+
+float* opponentProximity(float opponents[]) 
+{
     float closest[5];
     closest[0] = smallest(4, 11, opponents);
     closest[1] = smallest(12, 17, opponents);
     closest[2] = smallest(18, 23, opponents);
     closest[3] = smallest(24, 31, opponents);
+
     float rearRight = smallest(32, 35, opponents);
     float rearLeft = smallest(0, 3, opponents);
     closest[4] = (rearRight > rearLeft) ? rearLeft : rearRight;
+    
     return closest;
 
 }
