@@ -600,28 +600,24 @@ double weights[] = {
 
 
 // CUSTOM STUFF FROM HERE
-struct Individuum
-{
-    genann* nn;
-    float fitness;
-
-};
-
-
 static struct
 {
     int cycles;
     float mutationChance;
+    float mutationLimit;
     bool popIsInitialized;
-    int curMaxFitness;
+    int totalLaps;
+    int curTry;
     int curIndividuum;
     int curCycle;
 } GA = 
     { 
      .cycles = 999,
      .mutationChance = 0.50f,
+     .mutationLimit = 0.05f,
      .popIsInitialized = false,
-     .curMaxFitness = 1,
+     .totalLaps = 3,
+     .curTry = 0,
      .curIndividuum = 0,
      .curCycle = 0
     };
@@ -633,18 +629,17 @@ static struct
     float dmgMultiplier;
     float onTrackMultiplier;
     float offTrackMultiplier;
-
-
 } RewardPolicy =
-{
+    {
      .laptimeThd = 180.0f,
      .dmgMultiplier = 1.0f,
-     .onTrackMultiplier = 2,
-     .offTrackMultiplier = 1     
+     .onTrackMultiplier = 2.0f,
+     .offTrackMultiplier = 1.0f     
     };
 
 
-#define popSize 30
+#define totalTries 2
+#define popSize 10
 #define inputNeuronCnt 14
 #define hiddenLayerCnt 1
 #define hiddenNeuronCnt 8
@@ -655,18 +650,15 @@ enum Mode mode = train_random;
 
 genann* population[popSize];
 genann* inferenceNN = NULL;
-
 float fitness[popSize];
-bool isFitnessInitid = false;
+float fitnessPerTry[totalTries];
 
+bool isFitnessInitid = false;
 int stuck = 0;
 int maxStuck = 300;
-
 float prevCurLapTime = -10.0f;
 int lapsCompleted = 0;
-
 int bestIdx = 0;
-
 float prevDamage = 0.0f;
 float prevDistRaced = 0.0f;
 
@@ -682,6 +674,37 @@ float RandomFloat(float a, float b) {
     return a + r;
 }
 
+void InitLogFile()
+{
+    FILE* f;
+    f = fopen(logPath, "a");
+    char data[500];
+
+    sprintf(data, "mutation chance:\t%f", GA.mutationChance);
+    fputs(data, f);
+    sprintf(data, "\nmutation limit:\t%f", GA.mutationLimit);
+    fputs(data, f);
+    sprintf(data, "\nhidden layer count:\t%d", hiddenLayerCnt);
+    fputs(data, f);
+    sprintf(data, "\nhidden neuron count:\t%d", hiddenNeuronCnt);
+    fputs(data, f);
+    sprintf(data, "\npop size:\t%d", popSize);
+    fputs(data, f);
+    sprintf(data, "\ntotal tries:\t%d", totalTries);
+    fputs(data, f);
+    sprintf(data, "\non track multiplier:\t%f", RewardPolicy.onTrackMultiplier);
+    fputs(data, f);
+    sprintf(data, "\noff track multiplier:\t%f", RewardPolicy.offTrackMultiplier);
+    fputs(data, f);
+    sprintf(data, "\ndamage multiplier:\t%f", RewardPolicy.dmgMultiplier);
+    fputs(data, f);
+    sprintf(data, "\nlaptime threshold:\t%f", RewardPolicy.laptimeThd);        
+    fputs(data, f);
+    sprintf(data, "\ntotal laps:\t%d", GA.totalLaps);
+    fputs(data, f);
+    fclose(f);
+}
+
 
 void Cinit(float* angles)
 {
@@ -689,10 +712,13 @@ void Cinit(float* angles)
     {
         for (int i = 0; i < popSize; i++)
             fitness[i] = 1;
+        for(int i = 0; i < totalTries; i++)
+            fitnessPerTry[i] = 1;        
 
         // init random generator
         srand(time(0));
         isFitnessInitid = true;
+        InitLogFile();
     }
 
     if (mode == train_random && !GA.popIsInitialized)
@@ -763,16 +789,12 @@ void evaluate(structCarState cs)
     }
 
     if (cs.curLapTime >= 0.0f) {
-        fitness[GA.curIndividuum] += points;
-        if (fitness[GA.curIndividuum] < 1)
-            fitness[GA.curIndividuum] = 1;
-
-
-        if (fitness[GA.curIndividuum] > GA.curMaxFitness)
-            GA.curMaxFitness = fitness[GA.curIndividuum];
+        fitnessPerTry[GA.curTry] += points;
+        if (fitnessPerTry[GA.curTry] < 1)
+            fitnessPerTry[GA.curTry] = 1;
     }
     else
-        fitness[GA.curIndividuum] = 1.0f;
+        fitnessPerTry[GA.curTry] = 1.0f;
 }
 
 
@@ -785,7 +807,7 @@ void reproduce()
     {
         new_pop[i] = genann_copy(new_pop[0]);
         for (int j = 0; j < weightCnt; j++) {
-            double mutation = RandomFloat(-0.05, 0.05);
+            double mutation = (double)RandomFloat(-GA.mutationLimit, GA.mutationLimit);
             if ((float)rand() / RAND_MAX < GA.mutationChance && new_pop[i]->weight[j] + mutation > -0.5f && new_pop[i]->weight[j] + mutation < 0.5)
                 new_pop[i]->weight[j] += mutation;
         }
@@ -824,12 +846,12 @@ float* opponentProximity(float opponents[])
     closest[4] = (rearRight > rearLeft) ? rearLeft : rearRight;
     
     return closest;
-
 }
 
 structCarControl CDrive(structCarState cs)
 {
-    //printf("\nDistance raced[%d,%d]: %f", GA.curCycle, GA.curIndividuum, cs.distRaced);
+    printf("\nfitnessPerTry[%d,%d,%d]:\t%f", GA.curCycle, GA.curIndividuum, GA.curTry, fitnessPerTry[GA.curTry]);
+    printf("\nfitness[%d,%d,%d]:\t\t%f", GA.curCycle, GA.curIndividuum, GA.curTry, fitness[GA.curIndividuum]);
 
     if (cs.curLapTime < prevCurLapTime)
         lapsCompleted++;
@@ -876,7 +898,7 @@ structCarControl CDrive(structCarState cs)
     if (mode == train_random || mode == train_continue)
     {
         evaluate(cs);
-        if (cs.curLapTime > RewardPolicy.laptimeThd || stuck > maxStuck || lapsCompleted > 2)
+        if (cs.curLapTime > RewardPolicy.laptimeThd || stuck > maxStuck || lapsCompleted == GA.totalLaps - 1)
             meta = 1;
     }
 
@@ -890,80 +912,107 @@ void ConShutdown()
     printf("Bye bye!");
 }
 
+
+void LogGeneration()
+{
+    bestIdx = 0;
+    for (int i = 0; i < popSize; i++) {
+        if (fitness[i] > fitness[bestIdx])
+            bestIdx = i;
+    }
+    printf("\nNEXT CYCLE:\t%2d", GA.curCycle);
+
+    FILE* fp;
+    fp = fopen(logPath, "a");
+    char gen[200];
+    sprintf(gen, "\n\n\nGeneration: %d\nBestIdx: %d\nFitness of bestIdx: %f\n", GA.curCycle, bestIdx, fitness[bestIdx]);
+    fputs(gen, fp);
+    fputs("\nfitness values", fp);
+
+    for (int i = 0; i < popSize; i++)
+    {
+        meanFit += fitness[i];
+        char data[200];
+        sprintf(data, "\n%d:\tfitness:\t%f", i, fitness[i]);
+        fputs(data, fp);
+    }
+
+    float meanFit = 0;
+    char data[200];
+    meanFit /= popSize;
+    sprintf(data, "\nMean fitness:\t%f", meanFit);
+    fputs(data, fp);
+    fclose(fp);
+}
+
+
+void SaveGeneration()
+{
+    char dir[100];
+    struct stat st = { 0 };
+    sprintf(dir, "gen%03d", GA.curCycle);
+    if (stat(dir, &st) == -1) {
+        mkdir(dir, 0777);
+    }
+
+    for (int i = 0; i < popSize; i++)
+    {
+        char path[100];
+        sprintf(path, "gen%03d/%02d.txt", GA.curCycle, i);
+        FILE* out = fopen(path, "w");
+        genann_write(population[i], out);
+        fclose(out);
+    }
+}
+
+void next() // next individuum or generation
+{
+    GA.curTry = 0;
+    
+    float sum = 0.0f;
+    for(int i = 0; i < totalTries; i++)
+        sum += fitnessPerTry[i];
+    fitness[GA.curIndividuum] = sum / (float)totalTries;
+
+    if (GA.curIndividuum == popSize - 1)
+    {
+        LogGeneration();
+        SaveGeneration();        
+
+        if (GA.curCycle == GA.cycles - 1)
+            exit(420);
+        
+        reproduce();
+        GA.curIndividuum = 0;
+        GA.curCycle++;
+
+        for (int i = 0; i < popSize; i++)
+            fitness[i] = 1;
+        for(int i = 0; i < totalTries; i++)
+            fitnessPerTry[i] = 1;
+        
+        return;
+    }
+
+    for(int i = 0; i < totalTries; i++)
+            fitnessPerTry[i] = 1;
+    GA.curIndividuum++;
+    fitness[GA.curIndividuum] = 1;
+}
+
 void ConRestart()
 {
     stuck = 0;
     prevDistRaced = 0.0f;
     prevDamage = 0.0f;
-    prevDamage = 0.0f;
-    prevDistRaced = 0.0f;
     lapsCompleted = 0;
     prevCurLapTime = -10.0f;
-    float meanFit = 0;
 
-    if (GA.curIndividuum == popSize - 1)
-    {
-        bestIdx = 0;
-        for (int i = 0; i < popSize; i++) {
-            if (fitness[i] > fitness[bestIdx])
-                bestIdx = i;
-        }
-        printf("\nNEXT CYCLE:\t%2d", GA.curCycle);
-
-        FILE* fp;
-        fp = fopen(logPath, "a");
-        char gen[200];
-        sprintf(gen, "\n\n\nGeneration: %d\nBestIdx: %d\nFitness of bestIdx: %f\n", GA.curCycle, bestIdx, fitness[bestIdx]);
-        fputs(gen, fp);
-        fputs("\nfitness values", fp);
-
-        for (int i = 0; i < popSize; i++)
-        {
-            meanFit += fitness[i];
-            char data[200];
-            sprintf(data, "\n%d:\tfitness:\t%f", i, fitness[i]);
-            fputs(data, fp);
-        }
-
-        char data[200];
-        meanFit /= popSize;
-        sprintf(data, "\nMean fitness:\t%f", meanFit);
-        fputs(data, fp);
-        fclose(fp);
-
-        //Printing every generation
-        char dir[100];
-        struct stat st = { 0 };
-        sprintf(dir, "gen%03d", GA.curCycle);
-        if (stat(dir, &st) == -1) {
-            mkdir(dir, 0777);
-        }
-        for (int i = 0; i < popSize; i++)
-        {
-            char path[100];
-            sprintf(path, "gen%03d/%02d.txt", GA.curCycle, i);
-            FILE* out = fopen(path, "w");
-            genann_write(population[i], out);
-            fclose(out);
-        }
-
-
-        if (GA.curCycle == GA.cycles - 1)
-        {
-            exit(420);
-        }
-        reproduce();
-        GA.curIndividuum = 0;
-        GA.curCycle++;
-        GA.curMaxFitness = 1;
-
-        for (int i = 0; i < popSize; i++)
-            fitness[i] = 1;
-        return;
-    }
-
-    GA.curIndividuum++;
-    fitness[GA.curIndividuum] = 1;
+    if(GA.curTry == totalTries - 1)
+        next();
+    else
+        GA.curTry++;
+    
     printf("Restarting the race!");
 }
 
