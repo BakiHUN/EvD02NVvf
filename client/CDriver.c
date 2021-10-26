@@ -638,8 +638,8 @@ static struct
     };
 
 
-#define totalTries 2
-#define popSize 10
+#define totalTries 5
+#define popSize 30
 #define inputNeuronCnt 14
 #define hiddenLayerCnt 1
 #define hiddenNeuronCnt 8
@@ -929,6 +929,7 @@ void LogGeneration()
     fputs(gen, fp);
     fputs("\nfitness values", fp);
 
+    float meanFit = 0;
     for (int i = 0; i < popSize; i++)
     {
         meanFit += fitness[i];
@@ -936,8 +937,7 @@ void LogGeneration()
         sprintf(data, "\n%d:\tfitness:\t%f", i, fitness[i]);
         fputs(data, fp);
     }
-
-    float meanFit = 0;
+    
     char data[200];
     meanFit /= popSize;
     sprintf(data, "\nMean fitness:\t%f", meanFit);
