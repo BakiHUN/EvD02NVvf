@@ -652,6 +652,7 @@ genann* population[popSize];
 genann* inferenceNN = NULL;
 float fitness[popSize];
 float fitnessPerTry[totalTries];
+float closest[5];
 
 bool isFitnessInitid = false;
 int stuck = 0;
@@ -813,7 +814,7 @@ void reproduce()
                 new_pop[i]->weight[j] += mutation;
         }
     }
-    
+
     for (int i = 0; i < popSize; i++) {
         genann_free(population[i]);
         population[i] = genann_copy(new_pop[i]);
@@ -835,7 +836,6 @@ float smallest(int from, int to, float opponents[])
 
 float* opponentProximity(float opponents[]) 
 {
-    float closest[5];
     closest[0] = smallest(4, 11, opponents);
     closest[1] = smallest(12, 17, opponents);
     closest[2] = smallest(18, 23, opponents);
@@ -844,8 +844,6 @@ float* opponentProximity(float opponents[])
     float rearRight = smallest(32, 35, opponents);
     float rearLeft = smallest(0, 3, opponents);
     closest[4] = (rearRight > rearLeft) ? rearLeft : rearRight;
-    
-    return closest;
 }
 
 structCarControl CDrive(structCarState cs)
@@ -857,7 +855,16 @@ structCarControl CDrive(structCarState cs)
     clutching(&cs, &clutch);
     int gear = getGear(&cs);
     int meta = 0;
-    float* closest = opponentProximity(cs.opponents);
+    opponentProximity(cs.opponents);
+
+    //printf("\n\n");
+    //for(int i = 0; i < sizeof(cs.opponents)/sizeof(cs.opponents[0]); i++)
+    //    printf("\nopponents[%d]:\t%f", i, cs.opponents[i]);
+    //printf("\nleft:\t\t%f", closest[0]);
+    //printf("\nfront left:\t%f", closest[1]);
+    //printf("\nfront right:\t%f", closest[2]);
+    //printf("\nright:\t\t%f", closest[3]);
+    //printf("\nrear:\t\t%f", closest[4]);
 
     //https://towardsdatascience.com/17-rules-of-thumb-for-building-a-neural-network-93356f9930af
     double input[inputNeuronCnt];
