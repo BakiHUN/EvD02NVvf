@@ -638,8 +638,8 @@ static struct
     };
 
 
-#define totalTries 1
-#define popSize 30
+#define totalTries 2
+#define popSize 5
 #define inputNeuronCnt 14
 #define hiddenLayerCnt 1
 #define hiddenNeuronCnt 8
@@ -679,7 +679,7 @@ void InitLogFile()
 {
     FILE* f;
     f = fopen(logPath, "a");
-    char data[500];
+    char data[5000];
 
     sprintf(data, "mutation chance:\t%f", GA.mutationChance);
     fputs(data, f);
@@ -796,6 +796,8 @@ void evaluate(structCarState cs)
     }
     else
         fitnessPerTry[GA.curTry] = 1.0f;
+
+    //printf("\nfitnessPerTry[%d,%d,%d]:\t%f", GA.curCycle, GA.curIndividuum, GA.curTry, fitnessPerTry[GA.curTry]);
 }
 
 
@@ -808,6 +810,7 @@ void reproduce()
     for (int i = 1; i < popSize; i++)
     {
         new_pop[i] = genann_copy(new_pop[0]);
+
         for (int j = 0; j < weightCnt; j++) {
             double mutation = (double)RandomFloat(-GA.mutationLimit, GA.mutationLimit);
             if ((float)rand() / RAND_MAX < GA.mutationChance && new_pop[i]->weight[j] + mutation > -0.5f && new_pop[i]->weight[j] + mutation < 0.5)
