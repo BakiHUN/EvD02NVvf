@@ -813,18 +813,12 @@ void reproduce()
                 new_pop[i]->weight[j] += mutation;
         }
     }
+    
     for (int i = 0; i < popSize; i++) {
         genann_free(population[i]);
         population[i] = genann_copy(new_pop[i]);
         genann_free(new_pop[i]);
     }
-
-    /*for (int i = 0; i < popSize; i++)
-    {
-        inferenceNN = genann_init(9, 1, 6, 3);
-        for (int i = 0; i < sizeof(weights) / sizeof(weights[0]); i++)
-            inferenceNN->weight[i] = weights[i];
-    }*/
 }
 
 
