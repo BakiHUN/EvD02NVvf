@@ -638,8 +638,8 @@ static struct
     };
 
 
-#define totalTries 2
-#define popSize 10
+#define totalTries 1
+#define popSize 30
 #define inputNeuronCnt 14
 #define hiddenLayerCnt 1
 #define hiddenNeuronCnt 8
@@ -799,10 +799,11 @@ void evaluate(structCarState cs)
 
 
 void reproduce()
-{
+{    
     genann* new_pop[popSize];
     int weightCnt = population[0]->total_weights;
     new_pop[0] = genann_copy(population[bestIdx]);
+
     for (int i = 1; i < popSize; i++)
     {
         new_pop[i] = genann_copy(new_pop[0]);
@@ -855,9 +856,6 @@ float* opponentProximity(float opponents[])
 
 structCarControl CDrive(structCarState cs)
 {
-    printf("\nfitnessPerTry[%d,%d,%d]:\t%f", GA.curCycle, GA.curIndividuum, GA.curTry, fitnessPerTry[GA.curTry]);
-    printf("\nfitness[%d,%d,%d]:\t\t%f", GA.curCycle, GA.curIndividuum, GA.curTry, fitness[GA.curIndividuum]);
-
     if (cs.curLapTime < prevCurLapTime)
         lapsCompleted++;
     prevCurLapTime = cs.curLapTime;
@@ -1000,7 +998,7 @@ void next() // next individuum or generation
     }
 
     for(int i = 0; i < totalTries; i++)
-            fitnessPerTry[i] = 1;
+        fitnessPerTry[i] = 1;
     GA.curIndividuum++;
     fitness[GA.curIndividuum] = 1;
 }
@@ -1013,10 +1011,9 @@ void ConRestart()
     lapsCompleted = 0;
     prevCurLapTime = -10.0f;
 
-    if(GA.curTry == totalTries - 1)
-        next();
-    else
-        GA.curTry++;
+    GA.curTry++;
+    if(GA.curTry == totalTries)
+        next();        
     
     printf("Restarting the race!");
 }
