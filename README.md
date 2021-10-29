@@ -58,9 +58,14 @@ You have the possibility to specify the type of car you are using in the simulat
 
 Types of cars:
 
-155-DTM, acura-nsx-sz, baja-bug, buggy, car1-ow1, car1-stock1, car1-trb1, car1-trb3, car2-trb1, car3-trb1, car4-trb1, car5-trb1, car6-trb1,car7-trb1, car8-trb1, kc-2000gt, kc-5300gt, kc-a110, kc-alfatz2, kc-bigh, kc-cobra, kc-coda, kc-conrero, kc-corvette-ttop, kc-daytona, kc-db4z,kc-dbs, kc-dino, kc-ghibli, kc-giulietta, kc-grifo, kc-gt40, kc-gto, kc-p4, p406, pw-206wrc, pw-306wrc, pw-corollawrc, pw-evoviwrc, pw-focuswrc, pw-imprezawrc
+car6-trb1, 155-DTM, kc-p4, car1-stock1, p406
 
-The default type is __buggy__.
+The default type is __car6-trb1__.
+
+Opponents:
+
+To define how many opponents to have with you on the track, set value from 0-9 in the __OPPONENTS__ file.
+
 
 ### Building the client
 
