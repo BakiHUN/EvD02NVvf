@@ -613,8 +613,8 @@ static struct
 } GA = 
     { 
      .cycles = 999,
-     .mutationChance = 0.50f,
-     .mutationLimit = 0.05f,
+     .mutationChance = 0.05f,
+     .mutationLimit = 0.015f,
      .popIsInitialized = false,
      .totalLaps = 3,
      .curTry = 0,
@@ -633,17 +633,18 @@ static struct
     {
      .laptimeThd = 180.0f,
      .dmgMultiplier = 1.0f,
-     .onTrackMultiplier = 2.0f,
-     .offTrackMultiplier = 1.0f     
+     .onTrackMultiplier = 1.0f,
+     .offTrackMultiplier = 0.01f     
     };
 
 
 #define totalTries 2
-#define popSize 5
+#define popSize 20
 #define inputNeuronCnt 14
 #define hiddenLayerCnt 1
 #define hiddenNeuronCnt 8
 #define outputNeuronCnt 3
+#define top 5
 
 enum Mode { train_random, train_continue, inference };
 enum Mode mode = train_random;
@@ -769,6 +770,7 @@ void Cinit(float* angles)
 void evaluate(structCarState cs)
 {
     float points = 0;
+
     float distCovered = (cs.distRaced - prevDistRaced);
     if (distCovered <= 0.001f)
         stuck++;
@@ -776,7 +778,11 @@ void evaluate(structCarState cs)
         stuck = 0;
 
     if (distCovered > 0.0f && cs.trackPos > -1 && cs.trackPos < 1)
+    {
         distCovered *= RewardPolicy.onTrackMultiplier;
+        if(cs.speedX > 3.0f)
+            distCovered *= log(cs.speedX);
+    }
     else
         distCovered *= RewardPolicy.offTrackMultiplier;
 
@@ -807,11 +813,44 @@ void reproduce()
     int weightCnt = population[0]->total_weights;
     new_pop[0] = genann_copy(population[bestIdx]);
 
+    int idx[popSize];
+    for (int i = 0; i < popSize; i++)
+        idx[i] = i;
+
+    // sort fitness in descending order
+    for (int i = 0; i < popSize - 1; i++)
+    {
+        for (int j = i + 1; j < popSize; j++)
+        {
+            if (fitness[idx[j]] > fitness[idx[i]])
+            {
+                int temp = idx[i];
+                idx[i] = idx[j];
+                idx[j] = temp;
+            }
+        }
+    }
+
     for (int i = 1; i < popSize; i++)
     {
-        new_pop[i] = genann_copy(new_pop[0]);
+        //new_pop[i] = genann_copy(new_pop[0]);
+        new_pop[i] = genann_init(inputNeuronCnt, hiddenLayerCnt, hiddenNeuronCnt, outputNeuronCnt);
+        int pA = idx[rand() % top];
+        int pB = idx[rand() % top];
 
-        for (int j = 0; j < weightCnt; j++) {
+        for(int k = 0; k < weightCnt; k++)
+        {
+            float pAfitness = fitness[pA];
+            float pBfitness = fitness[pB];
+            double pAweight = population[pA]->weight[k];
+            double pBweight = population[pB]->weight[k];
+            
+            double newWeight = (pAfitness * pAweight + pBfitness * pBweight) / (pAfitness + pBfitness);
+            new_pop[i]->weight[k] = newWeight;
+        }
+
+        for (int j = 0; j < weightCnt; j++) 
+        {
             double mutation = (double)RandomFloat(-GA.mutationLimit, GA.mutationLimit);
             if ((float)rand() / RAND_MAX < GA.mutationChance && new_pop[i]->weight[j] + mutation > -0.5f && new_pop[i]->weight[j] + mutation < 0.5)
                 new_pop[i]->weight[j] += mutation;
