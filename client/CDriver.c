@@ -744,7 +744,7 @@ void Cinit(float* angles)
     {
         if (inferenceNN == NULL)
         {
-            inferenceNN = genann_init(9, 1, 6, 3);
+            inferenceNN = genann_init(inputNeuronCnt, hiddenLayerCnt, hiddenNeuronCnt, outputNeuronCnt);
             for (int i = 0; i < sizeof(weights) / sizeof(weights[0]); i++)
                 inferenceNN->weight[i] = weights[i];
         }
