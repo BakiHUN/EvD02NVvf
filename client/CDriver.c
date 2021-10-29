@@ -969,51 +969,51 @@ float* opponentProximity(float opponents[])
 }
 
 
-
-float linearFit(float y[])
+#define S 5
+float med(float a[])
 {
-    float x[S], sumX = 0, sumX2 = 0, sumY = 0, sumXY = 0, b, m;
-    int n = S;
+    float b[S];
     for (int i = 0; i < S; i++)
-        x[i] = (float)i;
-
-    for (int i = 0; i < n; i++)
     {
-        sumX = sumX + x[i];
-        sumX2 = sumX2 + x[i] * x[i];
-        sumY = sumY + y[i];
-        sumXY = sumXY + x[i] * y[i];
+        b[i] = a[i];
     }
-    m = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
-    b = (sumY - m * sumX) / n;
+    for (int i = 0; i < S - 1; i++)
+    {
+        for (int j = i + 1; j < S; j++)
+        {
+            if (b[j] < b[i])
+            {
+                float temp = b[i];
+                b[i] = b[j];
+                b[j] = temp;
+            }
+        }
+    }
 
-    return m * S + b;
+    return a[S / 2];
 }
 
-void shift(float a[], float newE)
+void shift(float* a, float newE)
 {
     for (int i = 1; i < S; i++)
-        a[i - 1] = a[i];    
+        a[i - 1] = a[i];
 
-    a[S - 1] = newE;}
+    a[S - 1] = newE;
+}
 
 structCarControl CDrive(structCarState cs)
 {
-    evaluate(cs);
-    printf("\nfitness:\t%f", fitness[0]);
-
-    float track1 = linearFit(sensorHistory1);
-    float track5 = linearFit(sensorHistory5);
-    float track9 = linearFit(sensorHistory9);
-    float track13 = linearFit(sensorHistory13);
-    float track17 = linearFit(sensorHistory17);
-
     shift(sensorHistory1, cs.track[1]);
     shift(sensorHistory5, cs.track[5]);
     shift(sensorHistory9, cs.track[9]);
     shift(sensorHistory13, cs.track[13]);
     shift(sensorHistory17, cs.track[17]);
 
+    float track1 = med(sensorHistory1);
+    float track5 = med(sensorHistory5);
+    float track9 = med(sensorHistory9);
+    float track13 = med(sensorHistory13);
+    float track17 = med(sensorHistory17);
 
     if (cs.curLapTime < prevCurLapTime)
         lapsCompleted++;
@@ -1024,18 +1024,24 @@ structCarControl CDrive(structCarState cs)
     int meta = 0;
     opponentProximity(cs.opponents);
 
-    //https://towardsdatascience.com/17-rules-of-thumb-for-building-a-neural-network-93356f9930af
     double input[inputNeuronCnt];
-    input[0] = (double)track1 / 5;
-    input[1] = (double)track5 / 5;
-    input[2] = (double)track9 / 5;
-    input[3] = (double)track13 / 5;
-    input[4] = (double)track17 / 5;
-    //input[0] =  (double)cs.track[1] / 5;
-    //input[1] =  (double)cs.track[5] / 5;
-    //input[2] =  (double)cs.track[9] / 5;
-    //input[3] =  (double)cs.track[13] / 5;
-    //input[4] =  (double)cs.track[17] / 5;
+    bool filterOn = true;
+    if (filterOn)
+    {
+        input[0] = (double)track1 / 5;
+        input[1] = (double)track5 / 5;
+        input[2] = (double)track9 / 5;
+        input[3] = (double)track13 / 5;
+        input[4] = (double)track17 / 5;
+    }
+    else
+    {
+        input[0] = (double)cs.track[1] / 5;
+        input[1] = (double)cs.track[5] / 5;
+        input[2] = (double)cs.track[9] / 5;
+        input[3] = (double)cs.track[13] / 5;
+        input[4] = (double)cs.track[17] / 5;
+    }
     input[5] = (double)closest[0];
     input[6] = (double)closest[1];
     input[7] = (double)closest[2];
