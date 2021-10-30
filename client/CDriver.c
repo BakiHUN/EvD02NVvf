@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <assert.h>
 #include <errno.h>
+#define _USE_MATH_DEFINES
 #include <math.h>
 #include <string.h>
 /*
@@ -514,156 +515,18 @@ const float clutchMaxTime = 1.5;
 int stuck;
 float clutch;
 
-double weights[] = {
-4.33320108273418713729e-01,
-1.67212437564777105514e-01,
--1.12720114749595645698e-01,
-3.46354539914143222390e-02,
--8.59439374138338818554e-02,
-2.07399213449143249299e-01,
--2.61555526950554506627e-01,
-8.11182097861129491889e-03,
--2.88272801645344078914e-01,
--2.64676349946590838691e-01,
--1.47900324026514040643e-01,
-4.70599841533583362896e-01,
--2.54325998718222590078e-01,
--4.00921623444083774501e-02,
-1.03170869524479513757e-01,
--3.07123021066923684863e-01,
--3.89660359249571763840e-02,
--2.61121249522879794736e-01,
--2.74405799624980906160e-01,
-4.20343644842942065765e-01,
--8.18639188481297130906e-02,
--3.90098269013347764833e-01,
-2.99955289174329675639e-01,
--3.18898587307410441571e-01,
-6.08111802242653487482e-02,
-3.97343369077983288307e-01,
--2.04104738984674571878e-01,
-3.43029571598830629320e-01,
-4.00756865619538049650e-01,
-3.71852778710287767971e-01,
--2.12782826934975133337e-01,
-1.99586477717293431233e-01,
-2.45410015560359351383e-01,
-3.43709375072189016187e-01,
-8.58287313834178444694e-02,
--3.76888332773827328115e-01,
-3.07275612659077768107e-01,
-3.11381421382971423917e-01,
-4.80864894558549749171e-01,
-6.48953221546713088230e-02,
--4.93475143792721671065e-01,
--4.12920008297614771209e-01,
-4.49082918363270966466e-01,
-1.51547284592020936600e-01,
--1.26514481032746373135e-01,
-3.75255440204080970013e-01,
--3.21955015717032388967e-01,
--2.63145848935659343315e-01,
-4.25206763570312618050e-01,
--8.20825803667606379577e-02,
-2.24295785393841318189e-01,
-2.95390178292587735065e-01,
-4.74332407978094061640e-01,
-4.24470501691359025642e-01,
-1.32929470063449128858e-01,
--2.06564531388287009328e-01,
--5.72879748122138710009e-02,
-4.63112735151922860766e-01,
-8.83419267648145600802e-02,
--1.16916387257075538031e-02,
-1.12079220493531139802e-01,
--4.20177313420564246815e-01,
-3.58567612128549484396e-01,
-1.94389629394627672099e-01,
--2.22429577892986507504e-01,
--4.86205633716849272563e-01,
--2.99715110842180276762e-01,
--9.28830835901974793956e-02,
--2.32026124134953992684e-01,
--2.24219490778665431208e-02,
--8.42478746465812888822e-02,
--2.88724937261428338253e-01,
--3.00836207159642321507e-01,
--2.66249429675177617938e-01,
--4.78484450819421980317e-01,
--3.05914330104735454618e-01,
-3.43043303904177143693e-01,
-9.85976732913957931714e-02,
--7.70836478343604469821e-02,
-4.55301824905488539130e-01,
--4.77806937850714597005e-01,
--1.10388502091995632792e-01,
-1.63878902736163567511e-01,
--4.78346048837721082858e-01,
-3.23767964567560628808e-01,
-2.96790982380195189627e-01,
--4.11392562959944529943e-01,
-1.59933775313096049331e-01,
-1.73887753057944127733e-01,
-3.60708943455815611578e-01,
-2.58470413060103099134e-01,
--1.34707174857329525786e-01,
--4.74635610799594320763e-01,
-3.73226129588180022267e-02,
-1.66493732206723255018e-01,
--6.07249667919121938198e-02,
--1.64845728934598811932e-01,
-1.72014525736319034976e-01,
--1.94280831779414242533e-02,
-2.29369485530292016584e-01,
-3.61960205130767209702e-01,
--5.10376277528483690560e-02,
--2.65570546241256200126e-01,
--3.78864408313257627903e-01,
-1.88717917257227307815e-01,
-4.74825281601282234156e-01,
-3.57856991588473616339e-01,
-4.20872373010950262540e-01,
-3.40800202221963499660e-01,
-1.56775112861158749666e-01,
-1.20050206362451228337e-01,
-1.89735103102398272590e-01,
--6.40882678412002526613e-04,
-3.40838189543371417045e-01,
--9.18973391888642243686e-02,
-3.48336750454956267653e-01,
--3.87203596038019348669e-02,
-2.76041443336420888599e-01,
--2.92194736734325999361e-01,
--2.72115239733973668379e-01,
-8.67015566228573897334e-02,
-3.41920377745390524638e-01,
-4.56663177847460577397e-03,
-1.49615462522650344290e-01,
-2.42401345859228234403e-01,
--2.87743766594439565054e-01,
-3.73609118986589772149e-01,
-2.56782756712981008462e-02,
--3.05240027419068804537e-01,
-1.05151524399548335076e-01,
-3.65030364967762310791e-01,
--6.18259231884376037058e-02,
--4.19423504651800671539e-01,
-2.88310040973322356805e-01,
-4.92759481956822731341e-01,
-8.77452963618043924043e-02,
--2.52029482047071096140e-01,
--2.78646196930587342067e-01,
-1.41689809665441313058e-01,
-2.11076689597623823325e-01,
-8.35443984043060527966e-03,
--3.20473342020329843294e-01,
-7.00766002561459266929e-02,
--4.73079623614522604136e-01,
-6.06707623562396936023e-03,
-4.15971863068164804389e-01,
--3.28708761190989795509e-01
-};
+#define REVERSE
 
+#ifdef REVERSE
+double weights[] = {
+    0.0f
+};
+#endif
+#ifndef REVERSE
+double weights[] = {
+
+};
+#endif
 
 // CUSTOM STUFF FROM HERE
 static struct
@@ -704,7 +567,7 @@ static struct
     };
 
 
-#define totalTries 2
+#define totalTries 1
 #define popSize 20
 #define inputNeuronCnt 10
 #define hiddenLayerCnt 1
@@ -818,7 +681,7 @@ void Cinit(float* angles)
     {
         for (int i = 0; i < popSize; i++)
         {
-            FILE* in = fopen("00.txt", "r");
+            FILE* in = fopen("14.txt", "r");
             population[i] = genann_read(in);
             fclose(in);
         }
@@ -864,8 +727,6 @@ void evaluate(structCarState cs)
     if (distCovered > 0.0f && cs.trackPos > -1 && cs.trackPos < 1)
     {
         distCovered *= RewardPolicy.onTrackMultiplier;
-        if(cs.speedX > 3.0f)
-            distCovered *= log(cs.speedX);
     }
     else
         distCovered *= RewardPolicy.offTrackMultiplier;
@@ -890,47 +751,16 @@ void evaluate(structCarState cs)
 
 
 void reproduce()
-{    
+{
     genann* new_pop[popSize];
     int weightCnt = population[0]->total_weights;
     new_pop[0] = genann_copy(population[bestIdx]);
 
-    int idx[popSize];
-    for (int i = 0; i < popSize; i++)
-        idx[i] = i;
-
-    // sort fitness in descending order
-    for (int i = 0; i < popSize - 1; i++)
-    {
-        for (int j = i + 1; j < popSize; j++)
-        {
-            if (fitness[idx[j]] > fitness[idx[i]])
-            {
-                int temp = idx[i];
-                idx[i] = idx[j];
-                idx[j] = temp;
-            }
-        }
-    }
 
     for (int i = 1; i < popSize; i++)
     {
-        new_pop[i] = genann_init(inputNeuronCnt, hiddenLayerCnt, hiddenNeuronCnt, outputNeuronCnt);
-        int pA = idx[rand() % top];
-        int pB = idx[rand() % top];
-
-        for(int k = 0; k < weightCnt; k++)
-        {
-            float pAfitness = fitness[pA];
-            float pBfitness = fitness[pB];
-            double pAweight = population[pA]->weight[k];
-            double pBweight = population[pB]->weight[k];
-            
-            double newWeight = (pAfitness * pAweight + pBfitness * pBweight) / ((double)pAfitness + (double)pBfitness);
-            new_pop[i]->weight[k] = newWeight;
-        }
-
-        for (int j = 0; j < weightCnt; j++) 
+        new_pop[i] = genann_copy(new_pop[0]);
+        for (int j = 0; j < weightCnt; j++)
         {
             double mutation = (double)RandomFloat(-GA.mutationLimit, GA.mutationLimit);
             if ((float)rand() / RAND_MAX < GA.mutationChance && new_pop[i]->weight[j] + mutation > -0.5f && new_pop[i]->weight[j] + mutation < 0.5)
@@ -995,12 +825,62 @@ void shift(float* a, float newE)
     a[S - 1] = newE;
 }
 
-#define REVERSE
+
+bool reverseInitid = false;
+bool leftSideStart = false;
 
 structCarControl CDrive(structCarState cs)
 {
 #ifdef REVERSE
-    //printf("\nREVERSE");
+    if (!reverseInitid)
+    {
+        if (cs.trackPos < 0)
+            leftSideStart = false;
+        else
+            leftSideStart = true;
+
+        reverseInitid = true;
+    }
+
+    if (cs.curLapTime < 6.0f)
+    {
+        if (leftSideStart)
+        {
+            if (cs.curLapTime < 3.2)
+            {
+                structCarControl c = { 0.2, 0, -1, -90, 0, 0 };
+                return c;
+            }
+            else if (cs.curLapTime > 3.2 && cs.curLapTime < 4.5)
+            {
+                structCarControl c = { 1, 0, 1, 90, 0, 0 };
+                return c;
+            }
+            else
+            {
+                structCarControl c = { 0.2, 0, -1, -90, 0, 0 };
+                return c;
+            }
+        }
+        else
+        {
+            if (cs.curLapTime < 3.2)
+            {
+                structCarControl c = { 0.2, 0, -1, 90, 0, 0 };
+                return c;
+            }            
+            else if (cs.curLapTime > 3.2 && cs.curLapTime < 4.5)
+            {
+                structCarControl c = { 1, 0, 1, -90, 0, 0 };
+                return c;
+            }
+            else
+            {
+                structCarControl c = { 0.2, 0, -1, -90, 0, 0 };
+                return c;
+            }
+        }
+    }
 #endif
         
     shift(sensorHistory1, cs.track[1]);
@@ -1019,13 +899,29 @@ structCarControl CDrive(structCarState cs)
         lapsCompleted++;
     prevCurLapTime = cs.curLapTime;
 
+#ifdef REVERSE
+    int gear = -1;
+    int focus = 90;
+#endif
+#ifndef REVERSE
     clutching(&cs, &clutch);
     int gear = getGear(&cs);
+    int focus = 0;
+#endif
     int meta = 0;
+    
     opponentProximity(cs.opponents);
 
     double input[inputNeuronCnt];
     bool filterOn = false;
+#ifdef REVERSE
+    input[0] = (double)cs.track[9] / 5;
+    input[1] = (double)cs.track[12] / 5;
+    input[2] = (double)cs.track[15] / 5;
+    input[3] = (double)cs.track[17] / 5;
+    input[4] = (double)cs.track[18] / 5;
+#endif
+#ifndef REVERSE
     if (filterOn)
     {
         input[0] = (double)track1 / 5;
@@ -1042,8 +938,18 @@ structCarControl CDrive(structCarState cs)
         input[3] = (double)cs.track[13] / 5;
         input[4] = (double)cs.track[17] / 5;
     }
+#endif
+
     input[5] = (double)closest;
+#ifdef REVERSE
+    if(cs.angle > 0)
+        input[6] = cs.angle - M_PI;
+    else
+        input[6] = cs.angle + M_PI;
+#endif
+#ifndef REVERSE
     input[6] = (double)cs.angle * 10; // c2s.angle [-3,14, +3,14] in radian
+#endif
     input[7] = (double)cs.trackPos * 10;
     input[8] = (double)cs.speedX / 6;
     input[9] = (double)cs.speedY / 2;
@@ -1074,7 +980,7 @@ structCarControl CDrive(structCarState cs)
             meta = 1;
     }
 
-    structCarControl cc = { accel, brake, gear, steer, clutch, meta };
+    structCarControl cc = { accel, brake, gear, steer, clutch, meta, focus};
     return cc;
 }
 
