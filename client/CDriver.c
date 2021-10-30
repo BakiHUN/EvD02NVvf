@@ -706,7 +706,7 @@ static struct
 
 #define totalTries 2
 #define popSize 20
-#define inputNeuronCnt 14
+#define inputNeuronCnt 10
 #define hiddenLayerCnt 1
 #define hiddenNeuronCnt 8
 #define outputNeuronCnt 3
@@ -721,13 +721,13 @@ float sensorHistory17[S];
 
 
 enum Mode { train_random, train_continue, inference };
-enum Mode mode = inference;
+enum Mode mode = train_random;
 
 genann* population[popSize];
 genann* inferenceNN = NULL;
 float fitness[popSize];
 float fitnessPerTry[totalTries];
-float closest[5];
+float closest;
 
 bool isFitnessInitid = false;
 int stuck = 0;
@@ -959,14 +959,7 @@ float smallest(int from, int to, float opponents[])
 
 float* opponentProximity(float opponents[]) 
 {
-    closest[0] = smallest(4, 11, opponents);
-    closest[1] = smallest(12, 17, opponents);
-    closest[2] = smallest(18, 23, opponents);
-    closest[3] = smallest(24, 31, opponents);
-
-    float rearRight = smallest(32, 35, opponents);
-    float rearLeft = smallest(0, 3, opponents);
-    closest[4] = (rearRight > rearLeft) ? rearLeft : rearRight;
+    closest = smallest(17, 18, opponents);
 }
 
 
@@ -1002,8 +995,14 @@ void shift(float* a, float newE)
     a[S - 1] = newE;
 }
 
+#define REVERSE
+
 structCarControl CDrive(structCarState cs)
 {
+#ifdef REVERSE
+    //printf("\nREVERSE");
+#endif
+        
     shift(sensorHistory1, cs.track[1]);
     shift(sensorHistory5, cs.track[5]);
     shift(sensorHistory9, cs.track[9]);
@@ -1043,15 +1042,11 @@ structCarControl CDrive(structCarState cs)
         input[3] = (double)cs.track[13] / 5;
         input[4] = (double)cs.track[17] / 5;
     }
-    input[5] = (double)closest[0];
-    input[6] = (double)closest[1];
-    input[7] = (double)closest[2];
-    input[8] = (double)closest[3];
-    input[9] = (double)closest[4];
-    input[10] = (double)cs.angle * 10; // c2s.angle [-3,14, +3,14] in radian
-    input[11] = (double)cs.trackPos * 10;
-    input[12] = (double)cs.speedX / 6;
-    input[13] = (double)cs.speedY / 2;
+    input[5] = (double)closest;
+    input[6] = (double)cs.angle * 10; // c2s.angle [-3,14, +3,14] in radian
+    input[7] = (double)cs.trackPos * 10;
+    input[8] = (double)cs.speedX / 6;
+    input[9] = (double)cs.speedY / 2;
 
 
     const double* prediction;
@@ -1068,6 +1063,9 @@ structCarControl CDrive(structCarState cs)
         brake = 0;
     else
         accel = 0;
+
+    if (cs.speedX > 149.0f)
+        accel = 0.0f;
 
     if (mode == train_random || mode == train_continue)
     {
