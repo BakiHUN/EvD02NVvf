@@ -524,7 +524,7 @@ double weights[] = {
 #endif
 #ifndef REVERSE
 double weights[] = {
-
+    0.0f
 };
 #endif
 
@@ -536,7 +536,6 @@ static struct
     float mutationLimit;
     bool popIsInitialized;
     int totalLaps;
-    int curTry;
     int curIndividuum;
     int curCycle;
 } GA = 
@@ -546,7 +545,6 @@ static struct
      .mutationLimit = 0.015f,
      .popIsInitialized = false,
      .totalLaps = 3,
-     .curTry = 0,
      .curIndividuum = 0,
      .curCycle = 0
     };
@@ -567,13 +565,11 @@ static struct
     };
 
 
-#define totalTries 1
-#define popSize 20
-#define inputNeuronCnt 10
+#define popSize 2
+#define inputNeuronCnt 9
 #define hiddenLayerCnt 1
-#define hiddenNeuronCnt 8
+#define hiddenNeuronCnt 5
 #define outputNeuronCnt 3
-#define top 5
 
 #define S 5
 float sensorHistory1[S];
@@ -589,8 +585,6 @@ enum Mode mode = train_random;
 genann* population[popSize];
 genann* inferenceNN = NULL;
 float fitness[popSize];
-float fitnessPerTry[totalTries];
-float closest;
 
 bool isFitnessInitid = false;
 int stuck = 0;
@@ -629,7 +623,6 @@ void InitLogFile()
     fputs(data, f);
     sprintf(data, "\npop size:\t%d", popSize);
     fputs(data, f);
-    sprintf(data, "\ntotal tries:\t%d", totalTries);
     fputs(data, f);
     sprintf(data, "\non track multiplier:\t%f", RewardPolicy.onTrackMultiplier);
     fputs(data, f);
@@ -651,8 +644,6 @@ void Cinit(float* angles)
     {
         for (int i = 0; i < popSize; i++)
             fitness[i] = 1;
-        for (int i = 0; i < totalTries; i++)
-            fitnessPerTry[i] = 1;
 
         // init random generator
         srand(time(0));
@@ -741,12 +732,12 @@ void evaluate(structCarState cs)
     }
 
     if (cs.curLapTime >= 0.0f) {
-        fitnessPerTry[GA.curTry] += points;
-        if (fitnessPerTry[GA.curTry] < 1)
-            fitnessPerTry[GA.curTry] = 1;
+        fitness[GA.curIndividuum] += points;
+        if (fitness[GA.curIndividuum] < 1)
+            fitness[GA.curIndividuum] = 1;
     }
     else
-        fitnessPerTry[GA.curTry] = 1.0f;
+        fitness[GA.curIndividuum] = 1.0f;
 }
 
 
@@ -786,11 +777,6 @@ float smallest(int from, int to, float opponents[])
     return small;
 }
 
-
-float* opponentProximity(float opponents[]) 
-{
-    closest = smallest(17, 18, opponents);
-}
 
 
 #define S 5
@@ -909,8 +895,7 @@ structCarControl CDrive(structCarState cs)
     int focus = 0;
 #endif
     int meta = 0;
-    
-    opponentProximity(cs.opponents);
+   
 
     double input[inputNeuronCnt];
     bool filterOn = false;
@@ -939,20 +924,18 @@ structCarControl CDrive(structCarState cs)
         input[4] = (double)cs.track[17] / 5;
     }
 #endif
-
-    input[5] = (double)closest;
 #ifdef REVERSE
     if(cs.angle > 0)
-        input[6] = cs.angle - M_PI;
+        input[5] = cs.angle - M_PI;
     else
-        input[6] = cs.angle + M_PI;
+        input[5] = cs.angle + M_PI;
 #endif
 #ifndef REVERSE
-    input[6] = (double)cs.angle * 10; // c2s.angle [-3,14, +3,14] in radian
+    input[5] = (double)cs.angle * 10; // c2s.angle [-3,14, +3,14] in radian
 #endif
-    input[7] = (double)cs.trackPos * 10;
-    input[8] = (double)cs.speedX / 6;
-    input[9] = (double)cs.speedY / 2;
+    input[6] = (double)cs.trackPos * 10;
+    input[7] = (double)cs.speedX / 6;
+    input[8] = (double)cs.speedY / 2;
 
 
     const double* prediction;
@@ -1045,13 +1028,6 @@ void SaveGeneration()
 
 void next() // next individuum or generation
 {
-    GA.curTry = 0;
-    
-    float sum = 0.0f;
-    for(int i = 0; i < totalTries; i++)
-        sum += fitnessPerTry[i];
-    fitness[GA.curIndividuum] = sum / (float)totalTries;
-
     if (GA.curIndividuum == popSize - 1)
     {
         LogGeneration();
@@ -1066,14 +1042,11 @@ void next() // next individuum or generation
 
         for (int i = 0; i < popSize; i++)
             fitness[i] = 1;
-        for(int i = 0; i < totalTries; i++)
-            fitnessPerTry[i] = 1;
+
         
         return;
     }
 
-    for(int i = 0; i < totalTries; i++)
-        fitnessPerTry[i] = 1;
     GA.curIndividuum++;
     fitness[GA.curIndividuum] = 1;
 }
@@ -1086,10 +1059,7 @@ void ConRestart()
     lapsCompleted = 0;
     prevCurLapTime = -10.0f;
 
-    GA.curTry++;
-    if(GA.curTry == totalTries)
-        next();        
-    
+    next();            
     printf("Restarting the race!");
 }
 
