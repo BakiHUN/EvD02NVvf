@@ -794,7 +794,7 @@ void Cinit(float* angles)
         // init random generator
         srand(time(0));
         isFitnessInitid = true;
-        if(mode =! inference)
+        if(mode != inference)
             InitLogFile();
 
         for (int i = 0; i < S; i++)
